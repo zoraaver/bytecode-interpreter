@@ -16,9 +16,6 @@
             "label": "Generate cmake project",
             "options": {
                 "env": {
-                    "CXX": "/usr/local/opt/llvm/bin/clang++",
-                    "CC": "/usr/local/opt/llvm/bin/clang",
-                    "LDFLAGS": "-L/usr/local/opt/llvm/lib/c++ -Wl,-rpath,/usr/local/opt/llvm/lib/c++",
                     "CMAKE_EXPORT_COMPILE_COMMANDS": "1"
                 }
             }

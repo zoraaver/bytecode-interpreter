@@ -1,6 +1,7 @@
 #ifndef LOX_CHUNK_H
 #define LOX_CHUNK_H
 
+#include <cstddef>
 #include <cstdint>
 #include <string_view>
 #include <vector>
@@ -13,7 +14,12 @@ namespace lox
 enum class OpCode : uint8_t
 {
     RETURN,
-    CONSTANT
+    CONSTANT,
+    NEGATE,
+    ADD,
+    SUBTRACT,
+    MULTIPLY,
+    DIVIDE
 };
 
 class Chunk
@@ -30,6 +36,13 @@ public:
     void write(OpCode, int line);
     void write(uint8_t byte, int line);
     int add_constant(Value);
+    const uint8_t* get_code() const;
+    const Value& get_constant(size_t index) const
+    {
+        return _constants[index];
+    };
+
+    void disassemble_instruction(const uint8_t*) const;
 };
 
 } // namespace lox

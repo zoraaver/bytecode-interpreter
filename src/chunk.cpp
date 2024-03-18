@@ -1,5 +1,6 @@
 #include "chunk.h"
 
+#include <cassert>
 #include <cstdint>
 #include <print>
 #include <string_view>
@@ -70,6 +71,16 @@ int Chunk::_disassemble_instruction(int offset) const
         return simple_instruction("RETURN", offset);
     case OpCode::CONSTANT:
         return _constant_instruction("CONSTANT", offset);
+    case OpCode::NEGATE:
+        return simple_instruction("NEGATE", offset);
+    case OpCode::ADD:
+        return simple_instruction("ADD", offset);
+    case OpCode::SUBTRACT:
+        return simple_instruction("SUBTRACT", offset);
+    case OpCode::MULTIPLY:
+        return simple_instruction("MULTIPLY", offset);
+    case OpCode::DIVIDE:
+        return simple_instruction("DIVIDE", offset);
     default:
         std::println("Unknown instruction {}", static_cast<uint8_t>(instruction));
         return offset + 1;
@@ -80,6 +91,16 @@ int Chunk::add_constant(Value value)
 {
     _constants.push_back(value);
     return _constants.size() - 1;
+}
+
+const uint8_t* Chunk::get_code() const
+{
+    return _code.data();
+}
+
+void Chunk::disassemble_instruction(const uint8_t* instruction) const
+{
+    _disassemble_instruction(instruction - _code.data());
 }
 
 } // namespace lox
