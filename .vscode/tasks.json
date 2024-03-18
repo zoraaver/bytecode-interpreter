@@ -1,0 +1,53 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "command": "cmake",
+            "args": [
+                "-S",
+                "${workspaceFolder}",
+                "-B",
+                "${workspaceFolder}/build",
+                "-G",
+                "Ninja Multi-Config",
+                "-DCMAKE_INSTALL_PREFIX=${workspaceFolder}/install"
+            ],
+            "group": "build",
+            "label": "Generate cmake project",
+            "options": {
+                "env": {
+                    "CXX": "/usr/local/opt/llvm/bin/clang++",
+                    "CC": "/usr/local/opt/llvm/bin/clang",
+                    "LDFLAGS": "-L/usr/local/opt/llvm/lib/c++ -Wl,-rpath,/usr/local/opt/llvm/lib/c++",
+                    "CMAKE_EXPORT_COMPILE_COMMANDS": "1"
+                }
+            }
+        },
+        {
+            "command": "cmake",
+            "label": "Build Debug",
+            "group": "build",
+            "args": [
+                "--build",
+                "${workspaceFolder}/build",
+                "--target",
+                "install",
+                "--config",
+                "Debug"
+            ]
+        },
+        {
+            "command": "cmake",
+            "label": "Build Release",
+            "group": "build",
+            "args": [
+                "--build",
+                "${workspaceFolder}/build",
+                "--target",
+                "install",
+                "--config",
+                "Release"
+            ]
+        }
+    ]
+}

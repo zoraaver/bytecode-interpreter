@@ -1,0 +1,17 @@
+// this is a comment
+
+fun fib(n) {
+  if (n <= 1) return n;
+  return fib(n - 2) + fib(n - 1);
+}
+
+var start = clock();
+
+for (var i = 0; i < 20; i = i + 1) {
+  println(fib(i));
+}
+
+var end = clock();
+
+println("Time taken:");
+println(end - start);

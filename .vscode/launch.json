@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "name": "Debug interpreter",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/install/bin/interpreter",
+            "args": [
+                "${workspaceFolder}/install/examples/test.lox"
+            ],
+            "cwd": "${fileDirname}",
+            "preLaunchTask": "Build Debug",
+            "terminal": "integrated"
+        }
+    ]
+}
