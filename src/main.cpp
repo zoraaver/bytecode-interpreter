@@ -5,6 +5,7 @@
 
 #include "chunk.h"
 #include "compiler.h"
+#include "parser.h"
 #include "scanner.h"
 #include "vm.h"
 
@@ -40,7 +41,16 @@ void run_file(std::string_view filename, lox::VM& vm)
 {
     const auto source = read_file(filename);
     lox::Scanner scanner{source};
-    lox::Compiler compiler{scanner};
+    lox::Parser parser{scanner};
+
+    auto expr = parser.parse();
+
+    if(!expr)
+    {
+        std::exit(65);
+    }
+
+    lox::Compiler compiler;
 
     compiler.compile();
 

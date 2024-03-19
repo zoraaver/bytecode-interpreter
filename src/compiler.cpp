@@ -1,36 +1,36 @@
 #include "compiler.h"
 
 #include <print>
+#include <string_view>
 
 #include "scanner.h"
 
 namespace lox
 {
 
-Compiler::Compiler(Scanner& scanner)
-    : _scanner(scanner){};
+Compiler::Compiler() { }
 
-void Compiler::compile()
+std::expected<Chunk, CompilerError> Compiler::compile()
 {
-    int line = -1;
-    while(true)
-    {
-        auto token = _scanner.scan_token();
-        if(token.line != line)
-        {
-            std::print("{:4d} ", token.line);
-            line = token.line;
-        }
-        else
-        {
-            std::print("   | ");
-        }
-        std::print(
-            "{} '{:{}s}'\n", get_token_type_name(token.type), token.lexeme, token.lexeme.size());
+    Chunk chunk;
 
-        if(token.type == TokenType::END_OF_FILE)
-            break;
-    }
+    int line = -1;
+    // while(true)
+    // {
+    // _parser.advance();
+    // }
+
+    _emit_return(chunk);
+
+    // if(_parser.has_error())
+    //     return std::unexpected(CompilerError::ParserError);
+
+    return chunk;
+}
+
+void Compiler::_emit_bytes(Chunk& chunk, uint8_t byte)
+{
+    // chunk.write(byte, _parser.get_previous_line());
 }
 
 } // namespace lox

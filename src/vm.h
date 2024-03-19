@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "chunk.h"
+#include "compiler.h"
 
 namespace lox
 {

@@ -1,6 +1,7 @@
 #ifndef LOX_SCANNER_H
 #define LOX_SCANNER_H
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -57,6 +58,11 @@ enum class TokenType
 };
 
 const char* get_token_type_name(TokenType type);
+
+constexpr inline uint8_t type_to_int(TokenType type)
+{
+    return static_cast<uint8_t>(type);
+}
 
 struct Token
 {
