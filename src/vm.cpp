@@ -1,6 +1,7 @@
 #include "vm.h"
 
 #include <print>
+#include <string_view>
 
 #include "chunk.h"
 #include "value.h"
@@ -13,9 +14,9 @@ VM::VM(const Chunk& chunk)
     , _ip(chunk.get_code())
 { }
 
-InterpretResult VM::interpret()
+InterpretResult VM::interpret(std::string_view source)
 {
-    return _run();
+    return InterpretResult::OK;
 }
 
 InterpretResult VM::_run()

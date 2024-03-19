@@ -65,7 +65,7 @@ class VM
 
 public:
     VM(const Chunk&);
-    InterpretResult interpret();
+    InterpretResult interpret(std::string_view source);
 };
 } // namespace lox
 

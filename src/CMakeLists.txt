@@ -3,6 +3,8 @@ add_library(interpreter_lib
     chunk.cpp
     value.cpp
     vm.cpp
+    scanner.cpp
+    compiler.cpp
 )
 
 target_compile_features(interpreter_lib PUBLIC cxx_std_23)
