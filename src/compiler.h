@@ -6,39 +6,47 @@
 #include <string_view>
 
 #include "chunk.h"
+#include "parser.h"
 
 namespace lox
 {
 
-enum class CompilerError
-{
-    ParserError
-};
-
 class Compiler
 {
-    void _emit_bytes(Chunk& chunk, uint8_t byte);
+    Chunk* _current_chunk = nullptr;
+    void _emit_byte(uint8_t byte, int line);
 
-    void _emit_bytecode(Chunk& chunk, OpCode code)
+    void _emit_bytecode(OpCode code, int line)
     {
-        _emit_bytes(chunk, static_cast<uint8_t>(code));
+        _emit_byte(static_cast<uint8_t>(code), line);
     };
 
-    void _emit_return(Chunk& chunk)
+    void _emit_return(int line)
     {
-        _emit_bytecode(chunk, OpCode::RETURN);
+        _emit_bytecode(OpCode::RETURN, line);
     }
 
-    template <typename... Bytes>
-    void _emit_bytes(Chunk& chunk, uint8_t byte, Bytes... bytes)
+    void _emit_bytes(uint8_t byte_1, uint8_t byte_2, int line)
     {
-        _emit_bytes(chunk, byte);
-        _emit_bytes(chunk, bytes...);
+        _emit_byte(byte_1, line);
+        _emit_byte(byte_2, line);
     }
+
+    uint8_t _make_constant(Value value);
 
 public:
     Compiler();
-    std::expected<Chunk, CompilerError> compile();
+
+    enum Error
+    {
+    };
+
+    std::expected<Chunk, Error> compile(const ASTNode& ast);
+
+    void operator()(const BinExprNode&);
+    void operator()(const ValueNode&);
+    void operator()(const GroupExprNode&);
+    void operator()(const UnaryExprNode&);
 };
 } // namespace lox
 

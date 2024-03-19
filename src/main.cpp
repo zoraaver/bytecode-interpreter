@@ -33,11 +33,11 @@ void repl(lox::VM& vm)
     for(std::string line; std::getline(std::cin, line);)
     {
         std::print("> ");
-        vm.interpret(line);
+        vm.interpret();
     }
 }
 
-void run_file(std::string_view filename, lox::VM& vm)
+void run_file(std::string_view filename)
 {
     const auto source = read_file(filename);
     lox::Scanner scanner{source};
@@ -52,9 +52,15 @@ void run_file(std::string_view filename, lox::VM& vm)
 
     lox::Compiler compiler;
 
-    compiler.compile();
+    auto chunk = compiler.compile(*expr);
 
-    auto result = vm.interpret(source);
+    if(!chunk)
+    {
+        std::exit(70);
+    }
+
+    lox::VM vm{chunk.value()};
+    auto result = vm.interpret();
 
     if(result == lox::InterpretResult::COMPILE_ERROR)
         std::exit(65);
@@ -74,7 +80,7 @@ int main(int argc, const char* argv[])
     }
     else if(argc == 2)
     {
-        run_file(argv[1], vm);
+        run_file(argv[1]);
     }
     else
     {

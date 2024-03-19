@@ -14,9 +14,10 @@ namespace lox
 struct BinExprNode;
 struct UnaryExprNode;
 struct GroupExprNode;
+struct ValueNode;
 
-using ASTNode = std::variant<BinExprNode, Value, GroupExprNode, UnaryExprNode>;
-using ASTExprNode = std::variant<BinExprNode, Value, GroupExprNode, UnaryExprNode>;
+using ASTNode = std::variant<BinExprNode, ValueNode, GroupExprNode, UnaryExprNode>;
+using ASTExprNode = std::variant<BinExprNode, ValueNode, GroupExprNode, UnaryExprNode>;
 
 struct BinExprNode
 {
@@ -27,6 +28,7 @@ struct BinExprNode
 
 struct GroupExprNode
 {
+    Token token;
     std::unique_ptr<ASTExprNode> expr;
 };
 
@@ -34,6 +36,12 @@ struct UnaryExprNode
 {
     Token op;
     std::unique_ptr<ASTExprNode> right;
+};
+
+struct ValueNode
+{
+    Token token;
+    Value value;
 };
 
 using ASTNodePtr = std::unique_ptr<ASTNode>;

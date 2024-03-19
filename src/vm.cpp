@@ -14,9 +14,9 @@ VM::VM(const Chunk& chunk)
     , _ip(chunk.get_code())
 { }
 
-InterpretResult VM::interpret(std::string_view source)
+InterpretResult VM::interpret()
 {
-    return InterpretResult::OK;
+    return _run();
 }
 
 InterpretResult VM::_run()

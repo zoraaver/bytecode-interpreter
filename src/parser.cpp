@@ -6,6 +6,15 @@
 
 namespace lox
 {
+namespace
+{
+
+constexpr uint8_t type_to_int(TokenType type)
+{
+    return static_cast<uint8_t>(type);
+}
+
+} // namespace
 
 Parser::ParseRule Parser::_parse_rules[] = {
     [type_to_int(TokenType::LEFT_PAREN)] = {&Parser::_parse_grouping, nullptr, Precedence::NONE},
@@ -83,15 +92,16 @@ ASTNodePtr Parser::_parse_number()
     std::string temp{_previous.lexeme};
     auto value = std::stod(temp);
 
-    return std::make_unique<ASTNode>(ASTNode{value});
+    return std::make_unique<ASTNode>(ASTNode{ValueNode{_previous, value}});
 }
 
 ASTNodePtr Parser::_parse_grouping()
 {
+    auto tok = _previous;
     auto expr = _parse_expression();
     _consume(TokenType::RIGHT_PAREN, "Expect ')' after expression.");
 
-    return std::make_unique<ASTNode>(ASTNode{GroupExprNode{std::move(expr)}});
+    return std::make_unique<ASTNode>(ASTNode{GroupExprNode{tok, std::move(expr)}});
 }
 
 ASTNodePtr Parser::_parse_unary_expression()
