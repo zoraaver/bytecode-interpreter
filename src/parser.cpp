@@ -133,8 +133,19 @@ ASTNodePtr Parser::_parse_statement()
     {
         return _parse_print_statement();
     }
+    else
+    {
+        return _parse_expression_statement();
+    }
+}
 
-    throw std::runtime_error{"Unimplemented"};
+ASTNodePtr Parser::_parse_expression_statement()
+{
+    auto token = _previous;
+    auto expr = _parse_expression();
+    _consume(TokenType::SEMICOLON, "Expect ';' after expression.");
+
+    return std::make_unique<ASTNode>(ASTNode{ExprStmtNode{token, std::move(expr)}});
 }
 
 ASTNodePtr Parser::_parse_print_statement()

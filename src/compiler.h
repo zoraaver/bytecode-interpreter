@@ -47,6 +47,7 @@ public:
     void operator()(const GroupExprNode&);
     void operator()(const UnaryExprNode&);
     void operator()(const PrintStmtNode&);
+    void operator()(const ExprStmtNode&);
 };
 } // namespace lox
 

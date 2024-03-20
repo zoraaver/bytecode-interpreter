@@ -89,6 +89,13 @@ void Compiler::operator()(const PrintStmtNode& node)
     _emit_bytecode(OpCode::PRINT, node.token.line);
 }
 
+void Compiler::operator()(const ExprStmtNode& node)
+{
+    std::visit(*this, *node.expr);
+
+    _emit_bytecode(OpCode::POP, node.token.line);
+}
+
 void Compiler::operator()(const ValueNode& node)
 {
     switch(node.value.get_type())

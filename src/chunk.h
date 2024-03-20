@@ -14,6 +14,7 @@ namespace lox
 enum class OpCode : uint8_t
 {
     RETURN,
+    POP,
     PRINT,
     CONSTANT,
     NIL,

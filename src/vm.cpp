@@ -115,6 +115,9 @@ InterpretResult VM::_run()
         case OpCode::PRINT:
             print_value(_stack.pop());
             break;
+        case OpCode::POP:
+            _stack.pop();
+            break;
         }
     }
 #undef BINARY_OP

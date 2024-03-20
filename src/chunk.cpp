@@ -97,6 +97,8 @@ int Chunk::_disassemble_instruction(int offset) const
         return simple_instruction("LESS", offset);
     case OpCode::PRINT:
         return simple_instruction("PRINT", offset);
+    case OpCode::POP:
+        return simple_instruction("POP", offset);
     default:
         std::println("Unknown instruction {}", static_cast<uint8_t>(instruction));
         return offset + 1;

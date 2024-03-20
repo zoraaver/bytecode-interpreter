@@ -18,8 +18,10 @@ struct UnaryExprNode;
 struct GroupExprNode;
 struct ValueNode;
 struct PrintStmtNode;
+struct ExprStmtNode;
 
-using ASTNode = std::variant<BinExprNode, ValueNode, GroupExprNode, UnaryExprNode, PrintStmtNode>;
+using ASTNode =
+    std::variant<BinExprNode, ValueNode, GroupExprNode, UnaryExprNode, PrintStmtNode, ExprStmtNode>;
 
 struct BinExprNode
 {
@@ -47,6 +49,12 @@ struct ValueNode
 };
 
 struct PrintStmtNode
+{
+    Token token;
+    std::unique_ptr<ASTNode> expr;
+};
+
+struct ExprStmtNode
 {
     Token token;
     std::unique_ptr<ASTNode> expr;
@@ -104,6 +112,7 @@ class Parser
     ASTNodePtr _parse_declaration();
     ASTNodePtr _parse_statement();
     ASTNodePtr _parse_print_statement();
+    ASTNodePtr _parse_expression_statement();
 
     static ParseRule _parse_rules[];
 
