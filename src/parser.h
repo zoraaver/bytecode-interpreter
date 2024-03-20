@@ -78,6 +78,7 @@ class Parser
     void _error_at(const Token& token, std::string_view message);
     void _advance();
     bool _match(TokenType type);
+    void _synchronize();
 
     enum class Precedence
     {

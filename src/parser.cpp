@@ -124,7 +124,14 @@ ASTNodePtr Parser::_parse_string()
 
 ASTNodePtr Parser::_parse_declaration()
 {
-    return _parse_statement();
+    auto stmt = _parse_statement();
+
+    if(_panic_mode)
+    {
+        _synchronize();
+    }
+
+    return stmt;
 }
 
 ASTNodePtr Parser::_parse_statement()
@@ -294,5 +301,33 @@ void Parser::_consume(TokenType type, std::string_view message)
     }
 
     _error_at_current(message);
+}
+
+void Parser::_synchronize()
+{
+    _panic_mode = false;
+
+    while(_current.type != TokenType::END_OF_FILE)
+    {
+        if(_previous.type == TokenType::SEMICOLON)
+            return;
+
+        switch(_current.type)
+        {
+        case TokenType::CLASS:
+        case TokenType::FUN:
+        case TokenType::VAR:
+        case TokenType::FOR:
+        case TokenType::IF:
+        case TokenType::WHILE:
+        case TokenType::PRINT:
+        case TokenType::RETURN:
+            return;
+        default:
+            break;
+        }
+
+        _advance();
+    }
 }
 } // namespace lox
