@@ -1,9 +1,11 @@
 #include "parser.h"
-#include "scanner.h"
 
 #include <cstdint>
 #include <print>
 #include <utility>
+
+#include "object.h"
+#include "scanner.h"
 
 namespace lox
 {
@@ -52,7 +54,7 @@ Parser::ParseRule Parser::_parse_rules[] = {
                                             &Parser::_parse_binary_expression,
                                             Precedence::COMPARISON},
     [type_to_int(TokenType::IDENTIFIER)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::STRING)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::STRING)] = {&Parser::_parse_string, nullptr, Precedence::NONE},
     [type_to_int(TokenType::NUMBER)] = {&Parser::_parse_number, nullptr, Precedence::NONE},
     [type_to_int(TokenType::AND)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::CLASS)] = {nullptr, nullptr, Precedence::NONE},
@@ -102,6 +104,13 @@ ASTNodePtr Parser::_parse_number()
 {
     std::string temp{_previous.lexeme};
     Value value{std::stod(temp)};
+
+    return std::make_unique<ASTNode>(ASTNode{ValueNode{_previous, value}});
+}
+
+ASTNodePtr Parser::_parse_string()
+{
+    Value value{new StringObject{_previous.lexeme.substr(1, _previous.lexeme.size() - 2)}};
 
     return std::make_unique<ASTNode>(ASTNode{ValueNode{_previous, value}});
 }

@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "chunk.h"
+#include "object.h"
 #include "value.h"
 
 namespace lox
@@ -58,9 +59,27 @@ InterpretResult VM::_run()
             }
             _stack.top().negate();
             break;
-        case OpCode::ADD:
-            BINARY_OP(+);
-            break;
+        case OpCode::ADD: {
+            auto b = _stack.pop();
+            auto a = _stack.pop();
+
+            if(a.is_number() && b.is_number())
+            {
+                _stack.push(Value{a.as_number() + b.as_number()});
+                break;
+            }
+            else if(auto a_str = a.as_object<StringObject>())
+            {
+                auto b_str = b.as_object<StringObject>();
+                if(b_str)
+                {
+                    _stack.push(Value{new StringObject(a_str->value() + b_str->value())});
+                    break;
+                }
+            }
+            _runtime_error("{}", "Operands to + must both be numbers or strings.");
+            return InterpretResult::RUNTIME_ERROR;
+        }
         case OpCode::SUBTRACT:
             BINARY_OP(-);
             break;

@@ -82,6 +82,7 @@ void Compiler::operator()(const ValueNode& node)
 {
     switch(node.value.get_type())
     {
+    case ValueType::OBJECT:
     case ValueType::NUMBER:
         _emit_bytes(
             static_cast<uint8_t>(OpCode::CONSTANT), _make_constant(node.value), node.token.line);

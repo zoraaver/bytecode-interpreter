@@ -1,13 +1,16 @@
 #ifndef LOX_VALUE_H
 #define LOX_VALUE_H
 
+#include "object.h"
+
 namespace lox
 {
 enum class ValueType
 {
     BOOL,
     NIL,
-    NUMBER
+    NUMBER,
+    OBJECT
 };
 
 class Value
@@ -17,6 +20,7 @@ class Value
     {
         bool boolean;
         double number;
+        Object* obj;
     } as;
 
 public:
@@ -28,6 +32,11 @@ public:
     Value(double number)
         : type(ValueType::NUMBER)
         , as{.number = number}
+    { }
+
+    Value(Object* obj)
+        : type(ValueType::OBJECT)
+        , as{.obj = obj}
     { }
 
     Value()
@@ -54,6 +63,12 @@ public:
         return type == ValueType::NIL;
     }
 
+    template <typename T>
+    bool is_object() const
+    {
+        return type == ValueType::OBJECT && as.obj->as<T>() != nullptr;
+    }
+
     bool as_bool() const
     {
         return as.boolean;
@@ -62,6 +77,12 @@ public:
     double as_number() const
     {
         return as.number;
+    }
+
+    template <typename T>
+    const T* as_object() const
+    {
+        return as.obj->as<T>();
     }
 
     void negate()
@@ -102,6 +123,8 @@ public:
             return as.number == other.as.number;
         case ValueType::NIL:
             return true;
+        case lox::ValueType::OBJECT:
+            return *as.obj == *other.as.obj;
         }
     }
 

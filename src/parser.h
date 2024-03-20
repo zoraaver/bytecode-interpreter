@@ -87,6 +87,7 @@ class Parser
     ASTNodePtr _parse_grouping();
     ASTNodePtr _parse_expression();
     ASTNodePtr _parse_literal();
+    ASTNodePtr _parse_string();
     ASTNodePtr _parse_unary_expression();
     ASTNodePtr _parse_binary_expression(ASTNodePtr);
     ASTNodePtr _parse_precedence(Precedence precedence);

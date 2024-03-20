@@ -6,6 +6,7 @@ add_library(interpreter_lib
     scanner.cpp
     compiler.cpp
     parser.cpp
+    object.cpp
 )
 
 target_compile_features(interpreter_lib PUBLIC cxx_std_23)
