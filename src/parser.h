@@ -1,6 +1,7 @@
 #ifndef LOX_PARSER_H
 #define LOX_PARSER_H
 
+#include "object.h"
 #include "scanner.h"
 #include "value.h"
 
@@ -49,6 +50,7 @@ using ASTNodePtr = std::unique_ptr<ASTNode>;
 class Parser
 {
     Scanner& _scanner;
+    ObjectAllocator& _allocator;
     Token _current{TokenType::ERROR, 0};
     Token _previous{TokenType::ERROR, 0};
     bool _had_error = false;
@@ -95,7 +97,7 @@ class Parser
     static ParseRule _parse_rules[];
 
 public:
-    Parser(Scanner& scanner);
+    Parser(Scanner& scanner, ObjectAllocator& allocator);
     ASTNodePtr parse();
 };
 } // namespace lox

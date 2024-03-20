@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <expected>
-#include <string_view>
 
 #include "chunk.h"
 #include "parser.h"

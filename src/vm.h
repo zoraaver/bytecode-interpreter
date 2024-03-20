@@ -7,7 +7,7 @@
 #include <print>
 
 #include "chunk.h"
-#include "compiler.h"
+#include "object.h"
 
 namespace lox
 {
@@ -58,6 +58,7 @@ class VM
     const Chunk& _chunk;
     const uint8_t* _ip = nullptr;
     Stack<Value, 256> _stack;
+    ObjectAllocator& _allocator;
 
     template <class... Args>
     constexpr void _runtime_error(std::string_view format, Args&&... args)
@@ -76,7 +77,7 @@ class VM
     };
 
 public:
-    VM(const Chunk&);
+    VM(const Chunk&, ObjectAllocator&);
     InterpretResult interpret();
 };
 } // namespace lox

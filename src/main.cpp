@@ -5,6 +5,7 @@
 
 #include "chunk.h"
 #include "compiler.h"
+#include "object.h"
 #include "parser.h"
 #include "scanner.h"
 #include "vm.h"
@@ -40,8 +41,10 @@ void repl(lox::VM& vm)
 void run_file(std::string_view filename)
 {
     const auto source = read_file(filename);
+    lox::ObjectAllocator allocator;
+
     lox::Scanner scanner{source};
-    lox::Parser parser{scanner};
+    lox::Parser parser{scanner, allocator};
 
     auto expr = parser.parse();
 
@@ -59,7 +62,7 @@ void run_file(std::string_view filename)
         std::exit(70);
     }
 
-    lox::VM vm{chunk.value()};
+    lox::VM vm{chunk.value(), allocator};
     auto result = vm.interpret();
 
     if(result == lox::InterpretResult::RUNTIME_ERROR)
@@ -70,10 +73,9 @@ void run_file(std::string_view filename)
 int main(int argc, const char* argv[])
 {
     lox::Chunk chunk;
-    lox::VM vm{chunk};
     if(argc == 1)
     {
-        repl(vm);
+        // repl(vm);
     }
     else if(argc == 2)
     {

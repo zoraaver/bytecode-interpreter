@@ -76,8 +76,9 @@ Parser::ParseRule Parser::_parse_rules[] = {
     [type_to_int(TokenType::END_OF_FILE)] = {nullptr, nullptr, Precedence::NONE},
 };
 
-Parser::Parser(Scanner& scanner)
+Parser::Parser(Scanner& scanner, ObjectAllocator& allocator)
     : _scanner(scanner)
+    , _allocator(allocator)
     , _current(_scanner.scan_token())
 { }
 
@@ -110,7 +111,8 @@ ASTNodePtr Parser::_parse_number()
 
 ASTNodePtr Parser::_parse_string()
 {
-    Value value{new StringObject{_previous.lexeme.substr(1, _previous.lexeme.size() - 2)}};
+    Value value{
+        _allocator.allocate_string(_previous.lexeme.substr(1, _previous.lexeme.size() - 2))};
 
     return std::make_unique<ASTNode>(ASTNode{ValueNode{_previous, value}});
 }

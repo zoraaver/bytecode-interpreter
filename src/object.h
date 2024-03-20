@@ -1,14 +1,16 @@
 #ifndef LOX_OBJECT_H
 #define LOX_OBJECT_H
 
-#include <iostream>
-#include <new>
 #include <string>
 #include <string_view>
+#include <vector>
+
+#include <absl/container/flat_hash_map.h>
 
 namespace lox
 {
 
+class ObjectAllocator;
 class Object
 {
 public:
@@ -18,7 +20,8 @@ public:
         return dynamic_cast<const T*>(this);
     }
 
-    void* operator new(size_t size);
+    void* operator new(size_t size, ObjectAllocator&);
+    void* operator new(size_t size) = delete;
 
     virtual bool operator==(const Object& rhs) const = 0;
     virtual ~Object();
@@ -43,6 +46,17 @@ public:
     bool operator==(const Object& rhs) const override;
 
     virtual ~StringObject();
+};
+
+class ObjectAllocator
+{
+    std::vector<Object*> _objects;
+    absl::flat_hash_map<std::string_view, StringObject*> _interned_strings;
+
+public:
+    Object* allocate(size_t size);
+    StringObject* allocate_string(std::string_view value);
+    ~ObjectAllocator();
 };
 
 } // namespace lox

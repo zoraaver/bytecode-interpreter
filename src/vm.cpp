@@ -10,9 +10,10 @@
 namespace lox
 {
 
-VM::VM(const Chunk& chunk)
+VM::VM(const Chunk& chunk, ObjectAllocator& allocator)
     : _chunk(chunk)
     , _ip(chunk.get_code())
+    , _allocator(allocator)
 { }
 
 InterpretResult VM::interpret()
@@ -73,7 +74,7 @@ InterpretResult VM::_run()
                 auto b_str = b.as_object<StringObject>();
                 if(b_str)
                 {
-                    _stack.push(Value{new StringObject(a_str->value() + b_str->value())});
+                    _stack.push(Value{_allocator.allocate_string(a_str->value() + b_str->value())});
                     break;
                 }
             }
