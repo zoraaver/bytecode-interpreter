@@ -3,7 +3,7 @@
         "--background-index",
         "--clang-tidy",
         "--compile-commands-dir",
-        "${workspaceFolder}/build/compile_commands.json",
+        "${workspaceFolder}/build",
     ],
     "clangd.path": "/usr/local/opt/llvm/bin/clangd",
     "[cpp]": {
