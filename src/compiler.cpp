@@ -4,6 +4,7 @@
 #include <print>
 #include <stdexcept>
 #include <variant>
+#include <vector>
 
 #include "chunk.h"
 #include "parser.h"
@@ -14,7 +15,7 @@ namespace lox
 
 Compiler::Compiler() { }
 
-std::expected<Chunk, Compiler::Error> Compiler::compile(const ASTNode& ast)
+std::expected<Chunk, Compiler::Error> Compiler::compile(const std::vector<ASTNodePtr>& declarations)
 {
     Chunk chunk;
 
@@ -22,7 +23,10 @@ std::expected<Chunk, Compiler::Error> Compiler::compile(const ASTNode& ast)
 
     int line = -1;
 
-    std::visit(*this, ast);
+    for(auto& node : declarations)
+    {
+        std::visit(*this, *node);
+    }
 
     _emit_return(0);
 
@@ -76,6 +80,13 @@ void Compiler::operator()(const BinExprNode& node)
 void Compiler::operator()(const GroupExprNode& node)
 {
     std::visit(*this, *node.expr);
+}
+
+void Compiler::operator()(const PrintStmtNode& node)
+{
+    std::visit(*this, *node.expr);
+
+    _emit_bytecode(OpCode::PRINT, node.token.line);
 }
 
 void Compiler::operator()(const ValueNode& node)

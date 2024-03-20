@@ -11,18 +11,18 @@ void print_value(Value value)
     switch(value.get_type())
     {
     case ValueType::BOOL:
-        std::print("'{}'", value.as_bool() ? "true" : "false");
+        std::println("'{}'", value.as_bool() ? "true" : "false");
         return;
     case ValueType::NUMBER:
-        std::print("'{:g}'", value.as_number());
+        std::println("'{:g}'", value.as_number());
         return;
     case ValueType::NIL:
-        std::print("nil");
+        std::println("nil");
         return;
     case ValueType::OBJECT:
         if(const auto* str = value.as_object<StringObject>())
         {
-            std::print("'{}'", str->value());
+            std::println("'{}'", str->value());
         }
         else
         {

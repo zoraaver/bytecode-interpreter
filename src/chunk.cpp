@@ -26,7 +26,6 @@ int Chunk::_constant_instruction(std::string_view name, int offset) const
     auto constant = _code.at(offset + 1);
     std::print("{:16} {:4} ", name, constant);
     print_value(_constants.at(constant));
-    std::println("");
 
     return offset + 2;
 }
@@ -96,6 +95,8 @@ int Chunk::_disassemble_instruction(int offset) const
         return simple_instruction("GREATER", offset);
     case OpCode::LESS:
         return simple_instruction("LESS", offset);
+    case OpCode::PRINT:
+        return simple_instruction("PRINT", offset);
     default:
         std::println("Unknown instruction {}", static_cast<uint8_t>(instruction));
         return offset + 1;

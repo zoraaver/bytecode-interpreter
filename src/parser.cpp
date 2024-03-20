@@ -82,18 +82,23 @@ Parser::Parser(Scanner& scanner, ObjectAllocator& allocator)
     , _current(_scanner.scan_token())
 { }
 
-ASTNodePtr Parser::parse()
+std::expected<std::vector<ASTNodePtr>, Parser::Error> Parser::parse()
 {
-    auto expr = _parse_expression();
+    std::vector<ASTNodePtr> declarations;
+
+    while(!_match(TokenType::END_OF_FILE))
+    {
+        declarations.push_back(_parse_declaration());
+    }
 
     _consume(TokenType::END_OF_FILE, "Expect end of file.");
 
     if(_had_error)
     {
-        return nullptr;
+        return std::unexpected{Parser::Error::BadToken};
     }
 
-    return expr;
+    return declarations;
 }
 
 ASTNodePtr Parser::_parse_expression()
@@ -115,6 +120,30 @@ ASTNodePtr Parser::_parse_string()
         _allocator.allocate_string(_previous.lexeme.substr(1, _previous.lexeme.size() - 2))};
 
     return std::make_unique<ASTNode>(ASTNode{ValueNode{_previous, value}});
+}
+
+ASTNodePtr Parser::_parse_declaration()
+{
+    return _parse_statement();
+}
+
+ASTNodePtr Parser::_parse_statement()
+{
+    if(_match(TokenType::PRINT))
+    {
+        return _parse_print_statement();
+    }
+
+    throw std::runtime_error{"Unimplemented"};
+}
+
+ASTNodePtr Parser::_parse_print_statement()
+{
+    auto token = _previous;
+    auto expr = _parse_expression();
+    _consume(TokenType::SEMICOLON, "Expect ';' after value.");
+
+    return std::make_unique<ASTNode>(ASTNode{PrintStmtNode{token, std::move(expr)}});
 }
 
 ASTNodePtr Parser::_parse_literal()
@@ -234,6 +263,15 @@ void Parser::_error_at(const Token& token, std::string_view message)
     std::println(stderr, ": {}", message);
     _had_error = true;
     _panic_mode = true;
+}
+
+bool Parser::_match(TokenType type)
+{
+    if(_current.type != type)
+        return false;
+
+    _advance();
+    return true;
 }
 
 void Parser::_consume(TokenType type, std::string_view message)

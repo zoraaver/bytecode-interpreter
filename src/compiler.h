@@ -40,12 +40,13 @@ public:
     {
     };
 
-    std::expected<Chunk, Error> compile(const ASTNode& ast);
+    std::expected<Chunk, Error> compile(const std::vector<ASTNodePtr>& declarations);
 
     void operator()(const BinExprNode&);
     void operator()(const ValueNode&);
     void operator()(const GroupExprNode&);
     void operator()(const UnaryExprNode&);
+    void operator()(const PrintStmtNode&);
 };
 } // namespace lox
 

@@ -5,6 +5,7 @@
 #include "scanner.h"
 #include "value.h"
 
+#include <expected>
 #include <functional>
 #include <memory>
 #include <variant>
@@ -16,33 +17,39 @@ struct BinExprNode;
 struct UnaryExprNode;
 struct GroupExprNode;
 struct ValueNode;
+struct PrintStmtNode;
 
-using ASTNode = std::variant<BinExprNode, ValueNode, GroupExprNode, UnaryExprNode>;
-using ASTExprNode = std::variant<BinExprNode, ValueNode, GroupExprNode, UnaryExprNode>;
+using ASTNode = std::variant<BinExprNode, ValueNode, GroupExprNode, UnaryExprNode, PrintStmtNode>;
 
 struct BinExprNode
 {
     Token op;
-    std::unique_ptr<ASTExprNode> left;
-    std::unique_ptr<ASTExprNode> right;
+    std::unique_ptr<ASTNode> left;
+    std::unique_ptr<ASTNode> right;
 };
 
 struct GroupExprNode
 {
     Token token;
-    std::unique_ptr<ASTExprNode> expr;
+    std::unique_ptr<ASTNode> expr;
 };
 
 struct UnaryExprNode
 {
     Token op;
-    std::unique_ptr<ASTExprNode> right;
+    std::unique_ptr<ASTNode> right;
 };
 
 struct ValueNode
 {
     Token token;
     Value value;
+};
+
+struct PrintStmtNode
+{
+    Token token;
+    std::unique_ptr<ASTNode> expr;
 };
 
 using ASTNodePtr = std::unique_ptr<ASTNode>;
@@ -62,6 +69,7 @@ class Parser
     void _error(std::string_view message);
     void _error_at(const Token& token, std::string_view message);
     void _advance();
+    bool _match(TokenType type);
 
     enum class Precedence
     {
@@ -93,12 +101,20 @@ class Parser
     ASTNodePtr _parse_unary_expression();
     ASTNodePtr _parse_binary_expression(ASTNodePtr);
     ASTNodePtr _parse_precedence(Precedence precedence);
+    ASTNodePtr _parse_declaration();
+    ASTNodePtr _parse_statement();
+    ASTNodePtr _parse_print_statement();
 
     static ParseRule _parse_rules[];
 
 public:
+    enum class Error
+    {
+        BadToken
+    };
+
     Parser(Scanner& scanner, ObjectAllocator& allocator);
-    ASTNodePtr parse();
+    std::expected<std::vector<ASTNodePtr>, Error> parse();
 };
 } // namespace lox
 

@@ -44,8 +44,6 @@ InterpretResult VM::_run()
         switch(auto instruction = static_cast<OpCode>(_read_byte()); instruction)
         {
         case OpCode::RETURN:
-            print_value(_stack.pop());
-            std::println("");
             return InterpretResult::OK;
         case OpCode::CONSTANT: {
             auto& value = _chunk.get_constant(_read_byte());
@@ -113,6 +111,9 @@ InterpretResult VM::_run()
             break;
         case OpCode::LESS:
             BINARY_OP(<);
+            break;
+        case OpCode::PRINT:
+            print_value(_stack.pop());
             break;
         }
     }

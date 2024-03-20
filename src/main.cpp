@@ -46,16 +46,16 @@ void run_file(std::string_view filename)
     lox::Scanner scanner{source};
     lox::Parser parser{scanner, allocator};
 
-    auto expr = parser.parse();
+    auto declarations = parser.parse();
 
-    if(!expr)
+    if(!declarations)
     {
         std::exit(65);
     }
 
     lox::Compiler compiler;
 
-    auto chunk = compiler.compile(*expr);
+    auto chunk = compiler.compile(declarations.value());
 
     if(!chunk)
     {
