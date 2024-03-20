@@ -1,8 +1,10 @@
 #include "parser.h"
 
 #include <cstdint>
+#include <memory>
 #include <print>
 #include <utility>
+#include <variant>
 
 #include "object.h"
 #include "scanner.h"
@@ -39,7 +41,9 @@ Parser::ParseRule Parser::_parse_rules[] = {
     [type_to_int(TokenType::BANG_EQUAL)] = {nullptr,
                                             &Parser::_parse_binary_expression,
                                             Precedence::EQUALITY},
-    [type_to_int(TokenType::EQUAL)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::EQUAL)] = {nullptr,
+                                       &Parser::_parse_assignment_expression,
+                                       Precedence::ASSIGNMENT},
     [type_to_int(TokenType::EQUAL_EQUAL)] = {nullptr,
                                              &Parser::_parse_binary_expression,
                                              Precedence::EQUALITY},
@@ -53,7 +57,7 @@ Parser::ParseRule Parser::_parse_rules[] = {
     [type_to_int(TokenType::LESS_EQUAL)] = {nullptr,
                                             &Parser::_parse_binary_expression,
                                             Precedence::COMPARISON},
-    [type_to_int(TokenType::IDENTIFIER)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::IDENTIFIER)] = {&Parser::_parse_variable, nullptr, Precedence::NONE},
     [type_to_int(TokenType::STRING)] = {&Parser::_parse_string, nullptr, Precedence::NONE},
     [type_to_int(TokenType::NUMBER)] = {&Parser::_parse_number, nullptr, Precedence::NONE},
     [type_to_int(TokenType::AND)] = {nullptr, nullptr, Precedence::NONE},
@@ -124,14 +128,59 @@ ASTNodePtr Parser::_parse_string()
 
 ASTNodePtr Parser::_parse_declaration()
 {
-    auto stmt = _parse_statement();
+    ASTNodePtr ret;
+
+    if(_match(TokenType::VAR))
+    {
+        ret = _parse_var_declaration();
+    }
+    else
+    {
+        ret = _parse_statement();
+    }
 
     if(_panic_mode)
     {
         _synchronize();
     }
 
-    return stmt;
+    return ret;
+}
+
+ASTNodePtr Parser::_parse_var_declaration()
+{
+    _consume(TokenType::IDENTIFIER, "Expected variable name");
+    auto identifier = _previous;
+
+    ASTNodePtr initializer = nullptr;
+
+    if(_match(TokenType::EQUAL))
+    {
+        initializer = _parse_expression();
+    }
+
+    _consume(TokenType::SEMICOLON, "Expect ';' after expression.");
+
+    return std::make_unique<ASTNode>(ASTNode{VarDeclNode{identifier, std::move(initializer)}});
+}
+
+ASTNodePtr Parser::_parse_variable()
+{
+    return std::make_unique<ASTNode>(ASTNode{VariableExprNode{_previous}});
+}
+
+ASTNodePtr Parser::_parse_assignment_expression(ASTNodePtr left)
+{
+    auto var = std::get_if<VariableExprNode>(left.get());
+
+    if(!var)
+    {
+        _error("Invalid assignment target");
+        return nullptr;
+    }
+    auto expr = _parse_expression();
+
+    return std::make_unique<ASTNode>(ASTNode{AssignmentExprNode{*var, std::move(expr)}});
 }
 
 ASTNodePtr Parser::_parse_statement()
@@ -148,11 +197,10 @@ ASTNodePtr Parser::_parse_statement()
 
 ASTNodePtr Parser::_parse_expression_statement()
 {
-    auto token = _previous;
     auto expr = _parse_expression();
     _consume(TokenType::SEMICOLON, "Expect ';' after expression.");
 
-    return std::make_unique<ASTNode>(ASTNode{ExprStmtNode{token, std::move(expr)}});
+    return std::make_unique<ASTNode>(ASTNode{ExprStmtNode{_previous, std::move(expr)}});
 }
 
 ASTNodePtr Parser::_parse_print_statement()

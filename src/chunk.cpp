@@ -1,9 +1,7 @@
 #include "chunk.h"
 
-#include <cassert>
 #include <cstdint>
 #include <print>
-#include <stdexcept>
 #include <string_view>
 
 #include "value.h"
@@ -99,6 +97,12 @@ int Chunk::_disassemble_instruction(int offset) const
         return simple_instruction("PRINT", offset);
     case OpCode::POP:
         return simple_instruction("POP", offset);
+    case OpCode::DEFINE_GLOBAL:
+        return simple_instruction("DEFINE_GLOBAL", offset);
+    case OpCode::GET_GLOBAL:
+        return simple_instruction("GET_GLOBAL", offset);
+    case OpCode::SET_GLOBAL:
+        return simple_instruction("SET_GLOBAL", offset);
     default:
         std::println("Unknown instruction {}", static_cast<uint8_t>(instruction));
         return offset + 1;

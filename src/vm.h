@@ -6,6 +6,8 @@
 #include <iostream>
 #include <print>
 
+#include "absl/container/flat_hash_map.h"
+
 #include "chunk.h"
 #include "object.h"
 
@@ -79,6 +81,7 @@ class VM
 public:
     VM(const Chunk&, ObjectAllocator&);
     InterpretResult interpret();
+    absl::flat_hash_map<std::string_view, Value> _globals;
 };
 } // namespace lox
 

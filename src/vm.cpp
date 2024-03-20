@@ -118,6 +118,42 @@ InterpretResult VM::_run()
         case OpCode::POP:
             _stack.pop();
             break;
+        case OpCode::DEFINE_GLOBAL: {
+            const auto* global_name = _chunk.get_constant(_read_byte()).as_object<StringObject>();
+
+            _globals.insert({global_name->value(), _stack.top()});
+            _stack.pop();
+
+            break;
+        }
+        case OpCode::GET_GLOBAL: {
+            const auto* global_name = _chunk.get_constant(_read_byte()).as_object<StringObject>();
+
+            auto it = _globals.find(global_name->value());
+
+            if(it == _globals.end())
+            {
+                _runtime_error("Undefined variable '{}'.", global_name->value());
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            _stack.push(it->second);
+            break;
+        }
+        case OpCode::SET_GLOBAL: {
+            const auto* global_name = _chunk.get_constant(_read_byte()).as_object<StringObject>();
+
+            auto it = _globals.find(global_name->value());
+
+            if(it == _globals.end())
+            {
+                _runtime_error("Undefined variable '{}'.", global_name->value());
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            it->second = _stack.top();
+            break;
+        }
         }
     }
 #undef BINARY_OP

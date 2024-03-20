@@ -3,17 +3,21 @@
 #include <cstdint>
 #include <print>
 #include <stdexcept>
+#include <sys/stat.h>
 #include <variant>
 #include <vector>
 
 #include "chunk.h"
+#include "object.h"
 #include "parser.h"
 #include "value.h"
 
 namespace lox
 {
 
-Compiler::Compiler() { }
+Compiler::Compiler(ObjectAllocator& allocator)
+    : _allocator(allocator)
+{ }
 
 std::expected<Chunk, Compiler::Error> Compiler::compile(const std::vector<ASTNodePtr>& declarations)
 {
@@ -94,6 +98,37 @@ void Compiler::operator()(const ExprStmtNode& node)
     std::visit(*this, *node.expr);
 
     _emit_bytecode(OpCode::POP, node.token.line);
+}
+
+void Compiler::operator()(const VarDeclNode& node)
+{
+    auto index = _make_constant(Value{_allocator.allocate_string(node.identifier.lexeme)});
+
+    if(node.initializer)
+    {
+        std::visit(*this, *node.initializer);
+    }
+    else
+    {
+        _emit_bytecode(OpCode::NIL, node.identifier.line);
+    }
+
+    _emit_bytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), index, node.identifier.line);
+}
+
+void Compiler::operator()(const VariableExprNode& node)
+{
+    auto index = _make_constant(Value{_allocator.allocate_string(node.var.lexeme)});
+    _emit_bytes(static_cast<uint8_t>(OpCode::GET_GLOBAL), index, node.var.line);
+}
+
+void Compiler::operator()(const AssignmentExprNode& node)
+{
+    std::visit(*this, *node.value);
+
+    auto index = _make_constant(Value{_allocator.allocate_string(node.target.var.lexeme)});
+
+    _emit_bytes(static_cast<uint8_t>(OpCode::SET_GLOBAL), index, node.target.var.line);
 }
 
 void Compiler::operator()(const ValueNode& node)

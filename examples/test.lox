@@ -1,5 +1,12 @@
 // this is a comment
 // !(5 - 4 > 3 * 2 == !nil)
-print 1 + 2;
-print true == "hello";
-1 + 2 == 3;
+var a = 1 + 2;
+var b;
+a = b = 4;
+
+print a;
+print b;
+
+var beverage = "cafe au lait";
+var breakfast = "beignets with " + beverage;
+print breakfast;

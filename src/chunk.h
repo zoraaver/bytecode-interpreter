@@ -15,6 +15,9 @@ enum class OpCode : uint8_t
 {
     RETURN,
     POP,
+    DEFINE_GLOBAL,
+    GET_GLOBAL,
+    SET_GLOBAL,
     PRINT,
     CONSTANT,
     NIL,

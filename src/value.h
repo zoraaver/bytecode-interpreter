@@ -82,7 +82,7 @@ public:
     template <typename T>
     const T* as_object() const
     {
-        return as.obj->as<T>();
+        return type == ValueType::OBJECT ? as.obj->as<T>() : nullptr;
     }
 
     void negate()

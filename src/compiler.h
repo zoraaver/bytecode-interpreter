@@ -5,6 +5,7 @@
 #include <expected>
 
 #include "chunk.h"
+#include "object.h"
 #include "parser.h"
 
 namespace lox
@@ -13,6 +14,8 @@ namespace lox
 class Compiler
 {
     Chunk* _current_chunk = nullptr;
+    ObjectAllocator& _allocator;
+
     void _emit_byte(uint8_t byte, int line);
 
     void _emit_bytecode(OpCode code, int line)
@@ -34,7 +37,7 @@ class Compiler
     uint8_t _make_constant(Value value);
 
 public:
-    Compiler();
+    Compiler(ObjectAllocator&);
 
     enum Error
     {
@@ -48,6 +51,9 @@ public:
     void operator()(const UnaryExprNode&);
     void operator()(const PrintStmtNode&);
     void operator()(const ExprStmtNode&);
+    void operator()(const VarDeclNode&);
+    void operator()(const VariableExprNode&);
+    void operator()(const AssignmentExprNode&);
 };
 } // namespace lox
 

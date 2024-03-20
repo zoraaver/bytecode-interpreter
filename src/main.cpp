@@ -53,7 +53,7 @@ void run_file(std::string_view filename)
         std::exit(65);
     }
 
-    lox::Compiler compiler;
+    lox::Compiler compiler{allocator};
 
     auto chunk = compiler.compile(declarations.value());
 
