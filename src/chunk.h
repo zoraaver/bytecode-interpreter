@@ -15,7 +15,14 @@ enum class OpCode : uint8_t
 {
     RETURN,
     CONSTANT,
+    NIL,
+    TRUE,
+    FALSE,
+    NOT,
     NEGATE,
+    EQUAL,
+    GREATER,
+    LESS,
     ADD,
     SUBTRACT,
     MULTIPLY,
@@ -37,10 +44,16 @@ public:
     void write(uint8_t byte, int line);
     int add_constant(Value);
     const uint8_t* get_code() const;
+
     const Value& get_constant(size_t index) const
     {
         return _constants[index];
     };
+
+    int get_line(size_t index) const
+    {
+        return _lines[index];
+    }
 
     void disassemble_instruction(const uint8_t*) const;
 };

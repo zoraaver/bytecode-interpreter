@@ -62,9 +62,6 @@ void run_file(std::string_view filename)
     lox::VM vm{chunk.value()};
     auto result = vm.interpret();
 
-    if(result == lox::InterpretResult::COMPILE_ERROR)
-        std::exit(65);
-
     if(result == lox::InterpretResult::RUNTIME_ERROR)
         std::exit(70);
 }

@@ -50,8 +50,26 @@ void Compiler::operator()(const BinExprNode& node)
     case TokenType::SLASH:
         _emit_bytecode(OpCode::DIVIDE, line);
         break;
+    case TokenType::EQUAL_EQUAL:
+        _emit_bytecode(OpCode::EQUAL, line);
+        break;
+    case TokenType::BANG_EQUAL:
+        _emit_bytes(static_cast<uint8_t>(OpCode::EQUAL), static_cast<uint8_t>(OpCode::NOT), line);
+        break;
+    case TokenType::GREATER:
+        _emit_bytecode(OpCode::GREATER, line);
+        break;
+    case TokenType::LESS:
+        _emit_bytecode(OpCode::LESS, line);
+        break;
+    case TokenType::GREATER_EQUAL:
+        _emit_bytes(static_cast<uint8_t>(OpCode::LESS), static_cast<uint8_t>(OpCode::NOT), line);
+        break;
+    case TokenType::LESS_EQUAL:
+        _emit_bytes(static_cast<uint8_t>(OpCode::GREATER), static_cast<uint8_t>(OpCode::NOT), line);
+        break;
     default:
-        return;
+        std::unreachable();
     }
 }
 
@@ -62,8 +80,19 @@ void Compiler::operator()(const GroupExprNode& node)
 
 void Compiler::operator()(const ValueNode& node)
 {
-    _emit_bytes(
-        static_cast<uint8_t>(OpCode::CONSTANT), _make_constant(node.value), node.token.line);
+    switch(node.value.get_type())
+    {
+    case ValueType::NUMBER:
+        _emit_bytes(
+            static_cast<uint8_t>(OpCode::CONSTANT), _make_constant(node.value), node.token.line);
+        break;
+    case ValueType::BOOL:
+        _emit_bytecode(node.value.as_bool() ? OpCode::TRUE : OpCode::FALSE, node.token.line);
+        break;
+    case ValueType::NIL:
+        _emit_bytecode(OpCode::NIL, node.token.line);
+        break;
+    }
 }
 
 void Compiler::operator()(const UnaryExprNode& node)
@@ -76,8 +105,11 @@ void Compiler::operator()(const UnaryExprNode& node)
     case TokenType::MINUS:
         _emit_bytecode(OpCode::NEGATE, node.op.line);
         break;
+    case TokenType::BANG:
+        _emit_bytecode(OpCode::NOT, node.op.line);
+        break;
     default:
-        return; // Unreachable.
+        std::unreachable();
     }
 }
 

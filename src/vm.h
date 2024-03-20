@@ -3,6 +3,8 @@
 
 #include <array>
 #include <cstdint>
+#include <iostream>
+#include <print>
 
 #include "chunk.h"
 #include "compiler.h"
@@ -12,7 +14,6 @@ namespace lox
 enum class InterpretResult
 {
     OK,
-    COMPILE_ERROR,
     RUNTIME_ERROR
 };
 
@@ -57,6 +58,16 @@ class VM
     const Chunk& _chunk;
     const uint8_t* _ip = nullptr;
     Stack<Value, 256> _stack;
+
+    template <class... Args>
+    constexpr void _runtime_error(std::string_view format, Args&&... args)
+    {
+        std::cerr << std::vformat(format, std::make_format_args(args...)) << '\n';
+
+        size_t instruction = _ip - _chunk.get_code() - 1;
+        int line = _chunk.get_line(instruction);
+        std::println(stderr, "[line {}] in script", line);
+    }
 
     InterpretResult _run();
     uint8_t _read_byte()

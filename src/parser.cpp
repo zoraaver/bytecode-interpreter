@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <print>
+#include <utility>
 
 namespace lox
 {
@@ -32,31 +33,41 @@ Parser::ParseRule Parser::_parse_rules[] = {
         TokenType::SLASH)] = {nullptr, &Parser::_parse_binary_expression, Precedence::FACTOR},
     [type_to_int(
         TokenType::STAR)] = {nullptr, &Parser::_parse_binary_expression, Precedence::FACTOR},
-    [type_to_int(TokenType::BANG)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::BANG_EQUAL)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::BANG)] = {&Parser::_parse_unary_expression, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::BANG_EQUAL)] = {nullptr,
+                                            &Parser::_parse_binary_expression,
+                                            Precedence::EQUALITY},
     [type_to_int(TokenType::EQUAL)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::EQUAL_EQUAL)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::GREATER)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::GREATER_EQUAL)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::LESS)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::LESS_EQUAL)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::EQUAL_EQUAL)] = {nullptr,
+                                             &Parser::_parse_binary_expression,
+                                             Precedence::EQUALITY},
+    [type_to_int(
+        TokenType::GREATER)] = {nullptr, &Parser::_parse_binary_expression, Precedence::COMPARISON},
+    [type_to_int(TokenType::GREATER_EQUAL)] = {nullptr,
+                                               &Parser::_parse_binary_expression,
+                                               Precedence::COMPARISON},
+    [type_to_int(
+        TokenType::LESS)] = {nullptr, &Parser::_parse_binary_expression, Precedence::COMPARISON},
+    [type_to_int(TokenType::LESS_EQUAL)] = {nullptr,
+                                            &Parser::_parse_binary_expression,
+                                            Precedence::COMPARISON},
     [type_to_int(TokenType::IDENTIFIER)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::STRING)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::NUMBER)] = {&Parser::_parse_number, nullptr, Precedence::NONE},
     [type_to_int(TokenType::AND)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::CLASS)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::ELSE)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::FALSE)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::FALSE)] = {&Parser::_parse_literal, nullptr, Precedence::NONE},
     [type_to_int(TokenType::FOR)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::FUN)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::IF)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::NIL)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::NIL)] = {&Parser::_parse_literal, nullptr, Precedence::NONE},
     [type_to_int(TokenType::OR)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::PRINT)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::RETURN)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::SUPER)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::THIS)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::TRUE)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::TRUE)] = {&Parser::_parse_literal, nullptr, Precedence::NONE},
     [type_to_int(TokenType::VAR)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::WHILE)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::ERROR)] = {nullptr, nullptr, Precedence::NONE},
@@ -90,7 +101,29 @@ ASTNodePtr Parser::_parse_expression()
 ASTNodePtr Parser::_parse_number()
 {
     std::string temp{_previous.lexeme};
-    auto value = std::stod(temp);
+    Value value{std::stod(temp)};
+
+    return std::make_unique<ASTNode>(ASTNode{ValueNode{_previous, value}});
+}
+
+ASTNodePtr Parser::_parse_literal()
+{
+    Value value{};
+
+    switch(_previous.type)
+    {
+    case TokenType::TRUE:
+        value = true;
+        break;
+    case TokenType::FALSE:
+        value = false;
+        break;
+    case TokenType::NIL:
+        // The default value is NIL
+        break;
+    default:
+        std::unreachable();
+    }
 
     return std::make_unique<ASTNode>(ASTNode{ValueNode{_previous, value}});
 }

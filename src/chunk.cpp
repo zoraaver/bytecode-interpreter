@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdint>
 #include <print>
+#include <stdexcept>
 #include <string_view>
 
 #include "value.h"
@@ -81,6 +82,20 @@ int Chunk::_disassemble_instruction(int offset) const
         return simple_instruction("MULTIPLY", offset);
     case OpCode::DIVIDE:
         return simple_instruction("DIVIDE", offset);
+    case OpCode::TRUE:
+        return simple_instruction("TRUE", offset);
+    case OpCode::FALSE:
+        return simple_instruction("FALSE", offset);
+    case OpCode::NIL:
+        return simple_instruction("NIL", offset);
+    case OpCode::NOT:
+        return simple_instruction("NOT", offset);
+    case OpCode::EQUAL:
+        return simple_instruction("EQUAL", offset);
+    case OpCode::GREATER:
+        return simple_instruction("GREATER", offset);
+    case OpCode::LESS:
+        return simple_instruction("LESS", offset);
     default:
         std::println("Unknown instruction {}", static_cast<uint8_t>(instruction));
         return offset + 1;
