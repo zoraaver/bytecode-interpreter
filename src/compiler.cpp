@@ -63,10 +63,17 @@ std::string Compiler::_get_error_message(const Exception& ex) const
 
 void Compiler::operator()(const BinExprNode& node)
 {
-    std::visit(*this, *node.left);
-    std::visit(*this, *node.right);
-
     const auto& line = node.op.line;
+
+    std::visit(*this, *node.left);
+
+    if(node.op.type == TokenType::AND)
+    {
+        _compile_and_expression(node);
+        return;
+    }
+
+    std::visit(*this, *node.right);
 
     switch(node.op.type)
     {
@@ -103,6 +110,18 @@ void Compiler::operator()(const BinExprNode& node)
     default:
         std::unreachable();
     }
+}
+
+void Compiler::_compile_and_expression(const BinExprNode& node)
+{
+    // At this point, we've already compiled the left hand side of the expression.
+    auto jump = _emit_jump(OpCode::JUMP_IF_FALSE, node.op.line);
+
+    _emit_bytecode(OpCode::POP, node.op.line);
+
+    std::visit(*this, *node.right);
+
+    _patch_jump(jump, node.op);
 }
 
 void Compiler::operator()(const GroupExprNode& node)

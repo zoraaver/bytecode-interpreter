@@ -69,6 +69,8 @@ private:
 
     uint8_t _make_constant(Value value);
 
+    void _compile_and_expression(const BinExprNode&);
+
     class Exception : public std::exception
     {
     public:

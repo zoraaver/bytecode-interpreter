@@ -1,10 +1,8 @@
 // this is a comment
 // !(5 - 4 > 3 * 2 == !nil)
-{
     var a = 3 + 2;
     var b = 323;
 
-    if (a < b) {
+    if (a < b and "bla") {
         print "a is greater than b";
     }
-}
