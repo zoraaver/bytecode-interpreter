@@ -3,10 +3,8 @@
 {
     var a = 3 + 2;
     var b = 323;
-     {
-        var b = "sdfd";
-        print b;
-     }
 
-    print a - b;
+    if (a < b) {
+        print "a is greater than b";
+    }
 }

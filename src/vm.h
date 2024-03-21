@@ -88,6 +88,12 @@ class VM
         return *_ip++;
     };
 
+    uint16_t _read_short()
+    {
+        _ip += 2;
+        return (_ip[-2] << 8) | _ip[-1];
+    }
+
 public:
     VM(const Chunk&, ObjectAllocator&);
     InterpretResult interpret();

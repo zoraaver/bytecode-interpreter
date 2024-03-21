@@ -33,7 +33,9 @@ enum class OpCode : uint8_t
     ADD,
     SUBTRACT,
     MULTIPLY,
-    DIVIDE
+    DIVIDE,
+    JUMP_IF_FALSE,
+    JUMP
 };
 
 class Chunk
@@ -45,6 +47,7 @@ class Chunk
     int _disassemble_instruction(int offset) const;
     int _constant_instruction(std::string_view name, int offset) const;
     int _byte_instruction(std::string_view name, int offset) const;
+    int _jump_instruction(std::string_view name, int sign, int offset) const;
 
 public:
     void disassemble(std::string_view name) const;
@@ -61,6 +64,21 @@ public:
     int get_line(size_t index) const
     {
         return _lines[index];
+    }
+
+    size_t size() const
+    {
+        return _code.size();
+    }
+
+    uint8_t& operator[](size_t index)
+    {
+        return _code[index];
+    }
+
+    const uint8_t& operator[](size_t index) const
+    {
+        return _code[index];
     }
 
     void disassemble_instruction(const uint8_t*) const;

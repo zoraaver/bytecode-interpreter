@@ -134,10 +134,6 @@ ASTNodePtr Parser::_parse_declaration()
     {
         ret = _parse_var_declaration();
     }
-    else if(_match(TokenType::LEFT_BRACE))
-    {
-        ret = _parse_block_statement();
-    }
     else
     {
         ret = _parse_statement();
@@ -207,10 +203,41 @@ ASTNodePtr Parser::_parse_statement()
     {
         return _parse_print_statement();
     }
+    else if(_match(TokenType::LEFT_BRACE))
+    {
+        return _parse_block_statement();
+    }
+    else if(_match(TokenType::IF))
+    {
+        return _parse_if_statement();
+    }
     else
     {
         return _parse_expression_statement();
     }
+}
+
+ASTNodePtr Parser::_parse_if_statement()
+{
+    auto if_tok = _previous;
+
+    _consume(TokenType::LEFT_PAREN, "Expect '(' after 'if'.");
+    auto condition = _parse_expression();
+    _consume(TokenType::RIGHT_PAREN, "Expect ')' after if condition.");
+
+    auto then_branch = _parse_statement();
+    ASTNodePtr else_branch = nullptr;
+
+    std::optional<Token> else_tok;
+
+    if(_match(TokenType::ELSE))
+    {
+        else_tok = _previous;
+        else_branch = _parse_statement();
+    }
+
+    return std::make_unique<ASTNode>(ASTNode{IfStmtNode{
+        if_tok, else_tok, std::move(condition), std::move(then_branch), std::move(else_branch)}});
 }
 
 ASTNodePtr Parser::_parse_expression_statement()

@@ -164,6 +164,16 @@ InterpretResult VM::_run()
             _stack[slot] = _stack.top();
             break;
         }
+        case OpCode::JUMP_IF_FALSE: {
+            auto jmp = _read_short();
+            if(_stack.top().is_falsey())
+                _ip += jmp;
+            break;
+        }
+        case OpCode::JUMP: {
+            _ip += _read_short();
+            break;
+        }
         }
     }
 #undef BINARY_OP

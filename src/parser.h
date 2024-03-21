@@ -8,6 +8,7 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <variant>
 
 namespace lox
@@ -23,6 +24,7 @@ struct BlockStmtNode;
 struct VarDeclNode;
 struct VariableExprNode;
 struct AssignmentExprNode;
+struct IfStmtNode;
 
 using ASTNode = std::variant<BinExprNode,
                              ValueNode,
@@ -33,7 +35,8 @@ using ASTNode = std::variant<BinExprNode,
                              VarDeclNode,
                              VariableExprNode,
                              AssignmentExprNode,
-                             BlockStmtNode>;
+                             BlockStmtNode,
+                             IfStmtNode>;
 
 struct BinExprNode
 {
@@ -76,6 +79,15 @@ struct BlockStmtNode
 {
     Token end_brace;
     std::vector<std::unique_ptr<ASTNode>> statements;
+};
+
+struct IfStmtNode
+{
+    Token if_tok;
+    std::optional<Token> else_tok;
+    std::unique_ptr<ASTNode> condition;
+    std::unique_ptr<ASTNode> then_branch;
+    std::unique_ptr<ASTNode> else_branch;
 };
 
 struct VarDeclNode
@@ -150,6 +162,7 @@ class Parser
     ASTNodePtr _parse_print_statement();
     ASTNodePtr _parse_expression_statement();
     ASTNodePtr _parse_block_statement();
+    ASTNodePtr _parse_if_statement();
     ASTNodePtr _parse_var_declaration();
     ASTNodePtr _parse_variable();
     ASTNodePtr _parse_assignment_expression(ASTNodePtr);

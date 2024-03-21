@@ -36,6 +36,16 @@ int Chunk::_byte_instruction(std::string_view name, int offset) const
     return offset + 2;
 }
 
+int Chunk::_jump_instruction(std::string_view name, int sign, int offset) const
+{
+    uint16_t jump = static_cast<uint16_t>(_code.at(offset + 1)) << 8;
+    jump |= _code.at(offset + 2);
+
+    std::println("{:16} {:4d} -> {:d}", name, offset, offset + 3 + sign * jump);
+
+    return offset + 3;
+}
+
 void Chunk::disassemble(std::string_view name) const
 {
     std::println("== {} ==", name);
@@ -115,6 +125,10 @@ int Chunk::_disassemble_instruction(int offset) const
         return _byte_instruction("GET_LOCAL", offset);
     case OpCode::SET_LOCAL:
         return _byte_instruction("SET_LOCAL", offset);
+    case OpCode::JUMP_IF_FALSE:
+        return _jump_instruction("JUMP_IF_FALSE", 1, offset);
+    case OpCode::JUMP:
+        return _jump_instruction("JUMP", 1, offset);
     }
 }
 

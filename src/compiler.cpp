@@ -56,6 +56,8 @@ std::string Compiler::_get_error_message(const Exception& ex) const
             "Redefined variable in same scope: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
     case Error::ChunkConstantLimitExceeded:
         return "Chunk constant limit exceeded";
+    case Error::JumpLimitExceeded:
+        return "Jump limit exceeded";
     }
 }
 
@@ -120,6 +122,54 @@ void Compiler::operator()(const ExprStmtNode& node)
     std::visit(*this, *node.expr);
 
     _emit_bytecode(OpCode::POP, node.token.line);
+}
+
+void Compiler::operator()(const IfStmtNode& node)
+{
+    std::visit(*this, *node.condition);
+
+    auto then_jump = _emit_jump(OpCode::JUMP_IF_FALSE, node.if_tok.line);
+
+    // Pop the condition from the stack.
+    _emit_bytecode(OpCode::POP, node.if_tok.line);
+
+    std::visit(*this, *node.then_branch);
+
+    auto else_jump = _emit_jump(
+        OpCode::JUMP, node.else_tok.has_value() ? node.else_tok.value().line : node.if_tok.line);
+
+    _patch_jump(then_jump, node.if_tok);
+
+    // Pop the condition from the stack.
+    _emit_bytecode(OpCode::POP, node.if_tok.line);
+
+    if(node.else_branch)
+    {
+        std::visit(*this, *node.else_branch);
+    }
+
+    _patch_jump(else_jump, node.else_tok.has_value() ? node.else_tok.value() : node.if_tok);
+}
+
+void Compiler::_patch_jump(int offset, const Token& tok)
+{
+    uint32_t jump = (_current_chunk->size() - 2) - offset;
+
+    if(jump > UINT16_MAX)
+    {
+        throw Exception{tok, Error::JumpLimitExceeded};
+    }
+
+    (*_current_chunk)[offset] = (jump >> 8) & 0xff;
+    (*_current_chunk)[offset + 1] = jump & 0xff;
+}
+
+int Compiler::_emit_jump(OpCode instruction, int line)
+{
+    _emit_bytecode(instruction, line);
+    _emit_bytes(0xff, 0xff, line);
+
+    return _current_chunk->size() - 2;
 }
 
 void Compiler::operator()(const BlockStmtNode& block_node)

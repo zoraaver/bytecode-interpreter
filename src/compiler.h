@@ -18,7 +18,8 @@ public:
     {
         LocalVariableLimitExceeded,
         RedefinedVariableInSameScope,
-        ChunkConstantLimitExceeded
+        ChunkConstantLimitExceeded,
+        JumpLimitExceeded
     };
 
 private:
@@ -63,6 +64,9 @@ private:
         _emit_byte(byte_2, line);
     }
 
+    int _emit_jump(OpCode instruction, int line);
+    void _patch_jump(int offset, const Token& tok);
+
     uint8_t _make_constant(Value value);
 
     class Exception : public std::exception
@@ -98,6 +102,7 @@ public:
     void operator()(const VarDeclNode&);
     void operator()(const VariableExprNode&);
     void operator()(const AssignmentExprNode&);
+    void operator()(const IfStmtNode&);
 };
 } // namespace lox
 
