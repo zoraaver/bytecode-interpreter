@@ -154,6 +154,16 @@ InterpretResult VM::_run()
             it->second = _stack.top();
             break;
         }
+        case OpCode::GET_LOCAL: {
+            auto slot = _read_byte();
+            _stack.push(_stack[slot]);
+            break;
+        }
+        case OpCode::SET_LOCAL: {
+            auto slot = _read_byte();
+            _stack[slot] = _stack.top();
+            break;
+        }
         }
     }
 #undef BINARY_OP

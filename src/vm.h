@@ -49,6 +49,16 @@ public:
         return _data[_top - 1];
     }
 
+    const T& operator[](size_t i) const
+    {
+        return _data[i];
+    }
+
+    T& operator[](size_t i)
+    {
+        return _data[i];
+    }
+
     T& top()
     {
         return _data[_top - 1];

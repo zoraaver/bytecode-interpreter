@@ -18,6 +18,8 @@ enum class OpCode : uint8_t
     DEFINE_GLOBAL,
     GET_GLOBAL,
     SET_GLOBAL,
+    GET_LOCAL,
+    SET_LOCAL,
     PRINT,
     CONSTANT,
     NIL,
@@ -42,6 +44,7 @@ class Chunk
 
     int _disassemble_instruction(int offset) const;
     int _constant_instruction(std::string_view name, int offset) const;
+    int _byte_instruction(std::string_view name, int offset) const;
 
 public:
     void disassemble(std::string_view name) const;

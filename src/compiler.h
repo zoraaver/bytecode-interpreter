@@ -13,9 +13,38 @@ namespace lox
 
 class Compiler
 {
+public:
+    enum class Error
+    {
+        LocalVariableLimitExceeded,
+        RedefinedVariableInSameScope,
+        ChunkConstantLimitExceeded
+    };
+
+private:
     Chunk* _current_chunk = nullptr;
     ObjectAllocator& _allocator;
 
+    struct Local
+    {
+        Token name;
+        // -1 indicates that the variable is not initialized
+        int depth = -1;
+    };
+
+    // To keep track of scopes
+    int _scope_depth = 0;
+    int _local_count = 0;
+    Local _locals[UINT8_MAX + 1];
+
+    void _begin_scope()
+    {
+        ++_scope_depth;
+    }
+
+    int _resolve_local(const Token& name);
+
+    void _end_scope(const Token&);
     void _emit_byte(uint8_t byte, int line);
 
     void _emit_bytecode(OpCode code, int line)
@@ -36,12 +65,26 @@ class Compiler
 
     uint8_t _make_constant(Value value);
 
+    class Exception : public std::exception
+    {
+    public:
+        Exception(const Token& token, Error error)
+            : token(token)
+            , error(error)
+        { }
+        const char* what() const noexcept override
+        {
+            return "Compilation error";
+        }
+
+        const Token token;
+        const Error error;
+    };
+
+    std::string _get_error_message(const Exception&) const;
+
 public:
     Compiler(ObjectAllocator&);
-
-    enum Error
-    {
-    };
 
     std::expected<Chunk, Error> compile(const std::vector<ASTNodePtr>& declarations);
 
@@ -51,6 +94,7 @@ public:
     void operator()(const UnaryExprNode&);
     void operator()(const PrintStmtNode&);
     void operator()(const ExprStmtNode&);
+    void operator()(const BlockStmtNode&);
     void operator()(const VarDeclNode&);
     void operator()(const VariableExprNode&);
     void operator()(const AssignmentExprNode&);

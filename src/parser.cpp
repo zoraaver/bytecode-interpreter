@@ -134,6 +134,10 @@ ASTNodePtr Parser::_parse_declaration()
     {
         ret = _parse_var_declaration();
     }
+    else if(_match(TokenType::LEFT_BRACE))
+    {
+        ret = _parse_block_statement();
+    }
     else
     {
         ret = _parse_statement();
@@ -145,6 +149,20 @@ ASTNodePtr Parser::_parse_declaration()
     }
 
     return ret;
+}
+
+ASTNodePtr Parser::_parse_block_statement()
+{
+    std::vector<ASTNodePtr> statements;
+
+    while(_current.type != TokenType::RIGHT_BRACE && _current.type != TokenType::END_OF_FILE)
+    {
+        statements.push_back(_parse_declaration());
+    }
+
+    _consume(TokenType::RIGHT_BRACE, "Expected '}' after block.");
+
+    return std::make_unique<ASTNode>(ASTNode{BlockStmtNode{_previous, std::move(statements)}});
 }
 
 ASTNodePtr Parser::_parse_var_declaration()

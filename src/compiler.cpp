@@ -2,8 +2,6 @@
 
 #include <cstdint>
 #include <print>
-#include <stdexcept>
-#include <sys/stat.h>
 #include <variant>
 #include <vector>
 
@@ -29,12 +27,36 @@ std::expected<Chunk, Compiler::Error> Compiler::compile(const std::vector<ASTNod
 
     for(auto& node : declarations)
     {
-        std::visit(*this, *node);
+        try
+        {
+            std::visit(*this, *node);
+        }
+        catch(const Exception& ex)
+        {
+            auto msg = _get_error_message(ex);
+            std::println("{}", msg);
+            return std::unexpected(ex.error);
+        }
     }
 
     _emit_return(0);
 
     return chunk;
+}
+
+std::string Compiler::_get_error_message(const Exception& ex) const
+{
+    switch(ex.error)
+    {
+    case Error::LocalVariableLimitExceeded:
+        return std::format(
+            "Local variable limit exceeded: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
+    case Error::RedefinedVariableInSameScope:
+        return std::format(
+            "Redefined variable in same scope: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
+    case Error::ChunkConstantLimitExceeded:
+        return "Chunk constant limit exceeded";
+    }
 }
 
 void Compiler::operator()(const BinExprNode& node)
@@ -100,10 +122,31 @@ void Compiler::operator()(const ExprStmtNode& node)
     _emit_bytecode(OpCode::POP, node.token.line);
 }
 
+void Compiler::operator()(const BlockStmtNode& block_node)
+{
+    _begin_scope();
+
+    for(const auto& node : block_node.statements)
+    {
+        std::visit(*this, *node);
+    }
+
+    _end_scope(block_node.end_brace);
+}
+
+void Compiler::_end_scope(const Token& brace)
+{
+    --_scope_depth;
+
+    while(_local_count > 0 && _locals[_local_count - 1].depth > _scope_depth)
+    {
+        _emit_bytecode(OpCode::POP, brace.line);
+        --_local_count;
+    }
+}
+
 void Compiler::operator()(const VarDeclNode& node)
 {
-    auto index = _make_constant(Value{_allocator.allocate_string(node.identifier.lexeme)});
-
     if(node.initializer)
     {
         std::visit(*this, *node.initializer);
@@ -113,22 +156,82 @@ void Compiler::operator()(const VarDeclNode& node)
         _emit_bytecode(OpCode::NIL, node.identifier.line);
     }
 
-    _emit_bytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), index, node.identifier.line);
+    if(_scope_depth == 0)
+    {
+        auto index = _make_constant(Value{_allocator.allocate_string(node.identifier.lexeme)});
+        _emit_bytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), index, node.identifier.line);
+
+        return;
+    }
+
+    // Check for any local variables declared in the same scope with the same
+    // name.
+    for(auto i = _local_count - 1; i >= 0; i--)
+    {
+        auto& local = _locals[i];
+
+        if(local.depth != -1 && local.depth < _scope_depth)
+        {
+            break;
+        }
+
+        if(local.name.lexeme == node.identifier.lexeme)
+        {
+            throw Exception{node.identifier, Error::RedefinedVariableInSameScope};
+        }
+    }
+
+    if(_local_count == (sizeof(_locals) / sizeof(Local)))
+    {
+        throw Exception{node.identifier, Error::LocalVariableLimitExceeded};
+    }
+
+    _locals[_local_count++] = {.name = node.identifier, .depth = _scope_depth};
 }
 
 void Compiler::operator()(const VariableExprNode& node)
 {
-    auto index = _make_constant(Value{_allocator.allocate_string(node.var.lexeme)});
-    _emit_bytes(static_cast<uint8_t>(OpCode::GET_GLOBAL), index, node.var.line);
+    auto arg = _resolve_local(node.var);
+    OpCode op = OpCode::GET_LOCAL;
+
+    if(arg == -1)
+    {
+        arg = _make_constant(Value{_allocator.allocate_string(node.var.lexeme)});
+        op = OpCode::GET_GLOBAL;
+    }
+
+    _emit_bytes(static_cast<uint8_t>(op), arg, node.var.line);
 }
 
 void Compiler::operator()(const AssignmentExprNode& node)
 {
     std::visit(*this, *node.value);
 
-    auto index = _make_constant(Value{_allocator.allocate_string(node.target.var.lexeme)});
+    auto arg = _resolve_local(node.target.var);
+    OpCode op = OpCode::SET_LOCAL;
 
-    _emit_bytes(static_cast<uint8_t>(OpCode::SET_GLOBAL), index, node.target.var.line);
+    if(arg == -1)
+    {
+        arg = _make_constant(Value{_allocator.allocate_string(node.target.var.lexeme)});
+        op = OpCode::SET_GLOBAL;
+    }
+
+    _emit_bytes(static_cast<uint8_t>(op), arg, node.target.var.line);
+}
+
+int Compiler::_resolve_local(const Token& name)
+{
+    for(auto i = _local_count - 1; i >= 0; i--)
+    {
+        auto& local = _locals[i];
+
+        if(local.name.lexeme == name.lexeme)
+        {
+            return i;
+        }
+    }
+
+    return -1;
 }
 
 void Compiler::operator()(const ValueNode& node)
@@ -178,7 +281,7 @@ uint8_t Compiler::_make_constant(Value value)
 
     if(index > UINT8_MAX)
     {
-        throw std::runtime_error("Too many constants in one chunk.");
+        throw Exception{Token{}, Error::ChunkConstantLimitExceeded};
     }
 
     return index;

@@ -28,6 +28,14 @@ int Chunk::_constant_instruction(std::string_view name, int offset) const
     return offset + 2;
 }
 
+int Chunk::_byte_instruction(std::string_view name, int offset) const
+{
+    auto slot = _code.at(offset + 1);
+    std::println("{:16} {:4d}", name, slot);
+
+    return offset + 2;
+}
+
 void Chunk::disassemble(std::string_view name) const
 {
     std::println("== {} ==", name);
@@ -103,9 +111,10 @@ int Chunk::_disassemble_instruction(int offset) const
         return simple_instruction("GET_GLOBAL", offset);
     case OpCode::SET_GLOBAL:
         return simple_instruction("SET_GLOBAL", offset);
-    default:
-        std::println("Unknown instruction {}", static_cast<uint8_t>(instruction));
-        return offset + 1;
+    case OpCode::GET_LOCAL:
+        return _byte_instruction("GET_LOCAL", offset);
+    case OpCode::SET_LOCAL:
+        return _byte_instruction("SET_LOCAL", offset);
     }
 }
 
