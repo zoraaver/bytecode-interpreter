@@ -83,52 +83,37 @@ int Chunk::_disassemble_instruction(int offset) const
 
     switch(instruction)
     {
-    case OpCode::RETURN:
-        return simple_instruction("RETURN", offset);
-    case OpCode::CONSTANT:
-        return _constant_instruction("CONSTANT", offset);
-    case OpCode::NEGATE:
-        return simple_instruction("NEGATE", offset);
-    case OpCode::ADD:
-        return simple_instruction("ADD", offset);
-    case OpCode::SUBTRACT:
-        return simple_instruction("SUBTRACT", offset);
-    case OpCode::MULTIPLY:
-        return simple_instruction("MULTIPLY", offset);
-    case OpCode::DIVIDE:
-        return simple_instruction("DIVIDE", offset);
-    case OpCode::TRUE:
-        return simple_instruction("TRUE", offset);
-    case OpCode::FALSE:
-        return simple_instruction("FALSE", offset);
-    case OpCode::NIL:
-        return simple_instruction("NIL", offset);
-    case OpCode::NOT:
-        return simple_instruction("NOT", offset);
-    case OpCode::EQUAL:
-        return simple_instruction("EQUAL", offset);
-    case OpCode::GREATER:
-        return simple_instruction("GREATER", offset);
-    case OpCode::LESS:
-        return simple_instruction("LESS", offset);
-    case OpCode::PRINT:
-        return simple_instruction("PRINT", offset);
-    case OpCode::POP:
-        return simple_instruction("POP", offset);
-    case OpCode::DEFINE_GLOBAL:
-        return simple_instruction("DEFINE_GLOBAL", offset);
-    case OpCode::GET_GLOBAL:
-        return simple_instruction("GET_GLOBAL", offset);
-    case OpCode::SET_GLOBAL:
-        return simple_instruction("SET_GLOBAL", offset);
-    case OpCode::GET_LOCAL:
-        return _byte_instruction("GET_LOCAL", offset);
-    case OpCode::SET_LOCAL:
-        return _byte_instruction("SET_LOCAL", offset);
-    case OpCode::JUMP_IF_FALSE:
-        return _jump_instruction("JUMP_IF_FALSE", 1, offset);
-    case OpCode::JUMP:
-        return _jump_instruction("JUMP", 1, offset);
+#define INSTRUCTION(name, type)                                                                    \
+    case OpCode::name:                                                                             \
+        return type(#name, offset);
+#define INSTRUCTION_1(name, type, sign)                                                            \
+    case OpCode::name:                                                                             \
+        return type(#name, sign, offset);
+        INSTRUCTION(RETURN, simple_instruction)
+        INSTRUCTION(CONSTANT, _constant_instruction)
+        INSTRUCTION(NEGATE, simple_instruction)
+        INSTRUCTION(ADD, simple_instruction)
+        INSTRUCTION(SUBTRACT, simple_instruction)
+        INSTRUCTION(MULTIPLY, simple_instruction)
+        INSTRUCTION(DIVIDE, simple_instruction)
+        INSTRUCTION(TRUE, simple_instruction)
+        INSTRUCTION(FALSE, simple_instruction)
+        INSTRUCTION(NIL, simple_instruction)
+        INSTRUCTION(NOT, simple_instruction)
+        INSTRUCTION(EQUAL, simple_instruction)
+        INSTRUCTION(GREATER, simple_instruction)
+        INSTRUCTION(LESS, simple_instruction)
+        INSTRUCTION(PRINT, simple_instruction)
+        INSTRUCTION(POP, simple_instruction)
+        INSTRUCTION(DEFINE_GLOBAL, simple_instruction)
+        INSTRUCTION(GET_GLOBAL, simple_instruction)
+        INSTRUCTION(SET_GLOBAL, simple_instruction)
+        INSTRUCTION(GET_LOCAL, _byte_instruction)
+        INSTRUCTION(SET_LOCAL, _byte_instruction)
+        INSTRUCTION_1(JUMP_IF_FALSE, _jump_instruction, 1)
+        INSTRUCTION_1(JUMP, _jump_instruction, 1)
+#undef INSTRUCTION_1
+#undef INSTRUCTION
     }
 }
 
