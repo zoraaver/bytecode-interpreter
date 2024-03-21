@@ -72,6 +72,11 @@ void Compiler::operator()(const BinExprNode& node)
         _compile_and_expression(node);
         return;
     }
+    else if(node.op.type == TokenType::OR)
+    {
+        _compile_or_expression(node);
+        return;
+    }
 
     std::visit(*this, *node.right);
 
@@ -116,6 +121,18 @@ void Compiler::_compile_and_expression(const BinExprNode& node)
 {
     // At this point, we've already compiled the left hand side of the expression.
     auto jump = _emit_jump(OpCode::JUMP_IF_FALSE, node.op.line);
+
+    _emit_bytecode(OpCode::POP, node.op.line);
+
+    std::visit(*this, *node.right);
+
+    _patch_jump(jump, node.op);
+}
+
+void Compiler::_compile_or_expression(const BinExprNode& node)
+{
+    // At this point, we've already compiled the left hand side of the expression.
+    auto jump = _emit_jump(OpCode::JUMP_IF_TRUE, node.op.line);
 
     _emit_bytecode(OpCode::POP, node.op.line);
 

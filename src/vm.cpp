@@ -170,6 +170,12 @@ InterpretResult VM::_run()
                 _ip += jmp;
             break;
         }
+        case OpCode::JUMP_IF_TRUE: {
+            auto jmp = _read_short();
+            if(!_stack.top().is_falsey())
+                _ip += jmp;
+            break;
+        }
         case OpCode::JUMP: {
             _ip += _read_short();
             break;

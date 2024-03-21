@@ -35,6 +35,7 @@ enum class OpCode : uint8_t
     MULTIPLY,
     DIVIDE,
     JUMP_IF_FALSE,
+    JUMP_IF_TRUE,
     JUMP
 };
 
