@@ -92,7 +92,7 @@ public:
 
     void not_op()
     {
-        as.boolean = !is_falsey();
+        as.boolean = is_falsey();
         type = ValueType::BOOL;
     }
 
