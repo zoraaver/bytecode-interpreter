@@ -113,6 +113,7 @@ int Chunk::_disassemble_instruction(int offset) const
         INSTRUCTION_1(JUMP_IF_FALSE, _jump_instruction, 1)
         INSTRUCTION_1(JUMP_IF_TRUE, _jump_instruction, 1)
         INSTRUCTION_1(JUMP, _jump_instruction, 1)
+        INSTRUCTION_1(LOOP, _jump_instruction, -1)
 #undef INSTRUCTION_1
 #undef INSTRUCTION
     }

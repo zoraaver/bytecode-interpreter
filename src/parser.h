@@ -25,6 +25,7 @@ struct VarDeclNode;
 struct VariableExprNode;
 struct AssignmentExprNode;
 struct IfStmtNode;
+struct WhileStmtNode;
 
 using ASTNode = std::variant<BinExprNode,
                              ValueNode,
@@ -36,7 +37,8 @@ using ASTNode = std::variant<BinExprNode,
                              VariableExprNode,
                              AssignmentExprNode,
                              BlockStmtNode,
-                             IfStmtNode>;
+                             IfStmtNode,
+                             WhileStmtNode>;
 
 struct BinExprNode
 {
@@ -88,6 +90,13 @@ struct IfStmtNode
     std::unique_ptr<ASTNode> condition;
     std::unique_ptr<ASTNode> then_branch;
     std::unique_ptr<ASTNode> else_branch;
+};
+
+struct WhileStmtNode
+{
+    Token while_tok;
+    std::unique_ptr<ASTNode> condition;
+    std::unique_ptr<ASTNode> body;
 };
 
 struct VarDeclNode
@@ -163,6 +172,7 @@ class Parser
     ASTNodePtr _parse_expression_statement();
     ASTNodePtr _parse_block_statement();
     ASTNodePtr _parse_if_statement();
+    ASTNodePtr _parse_while_statement();
     ASTNodePtr _parse_var_declaration();
     ASTNodePtr _parse_variable();
     ASTNodePtr _parse_assignment_expression(ASTNodePtr);

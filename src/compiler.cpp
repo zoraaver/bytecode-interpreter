@@ -8,6 +8,7 @@
 #include "chunk.h"
 #include "object.h"
 #include "parser.h"
+#include "scanner.h"
 #include "value.h"
 
 namespace lox
@@ -58,6 +59,8 @@ std::string Compiler::_get_error_message(const Exception& ex) const
         return "Chunk constant limit exceeded";
     case Error::JumpLimitExceeded:
         return "Jump limit exceeded";
+    case Error::LoopLimitExceeded:
+        return "Loop limit exceeded";
     }
 }
 
@@ -185,6 +188,40 @@ void Compiler::operator()(const IfStmtNode& node)
     }
 
     _patch_jump(else_jump, node.else_tok.has_value() ? node.else_tok.value() : node.if_tok);
+}
+
+void Compiler::operator()(const WhileStmtNode& node)
+{
+    uint32_t loop_start = _current_chunk->size();
+    std::visit(*this, *node.condition);
+
+    auto exit_jump = _emit_jump(OpCode::JUMP_IF_FALSE, node.while_tok.line);
+
+    // Pop the condition from the stack.
+    _emit_bytecode(OpCode::POP, node.while_tok.line);
+
+    std::visit(*this, *node.body);
+
+    _emit_loop(loop_start, node.while_tok);
+
+    _patch_jump(exit_jump, node.while_tok);
+
+    // Pop the condition from the stack.
+    _emit_bytecode(OpCode::POP, node.while_tok.line);
+}
+
+void Compiler::_emit_loop(uint32_t loop_start, const Token& tok)
+{
+    _emit_bytecode(OpCode::LOOP, tok.line);
+
+    uint32_t loop_offset = _current_chunk->size() - loop_start + 2;
+
+    if(loop_offset > UINT16_MAX)
+    {
+        throw Exception{tok, Error::LoopLimitExceeded};
+    }
+
+    _emit_bytes((loop_offset >> 8) & 0xff, loop_offset & 0xff, tok.line);
 }
 
 void Compiler::_patch_jump(int offset, const Token& tok)

@@ -19,7 +19,8 @@ public:
         LocalVariableLimitExceeded,
         RedefinedVariableInSameScope,
         ChunkConstantLimitExceeded,
-        JumpLimitExceeded
+        JumpLimitExceeded,
+        LoopLimitExceeded
     };
 
 private:
@@ -67,6 +68,8 @@ private:
     int _emit_jump(OpCode instruction, int line);
     void _patch_jump(int offset, const Token& tok);
 
+    void _emit_loop(uint32_t loop_start, const Token&);
+
     uint8_t _make_constant(Value value);
 
     void _compile_and_expression(const BinExprNode&);
@@ -106,6 +109,7 @@ public:
     void operator()(const VariableExprNode&);
     void operator()(const AssignmentExprNode&);
     void operator()(const IfStmtNode&);
+    void operator()(const WhileStmtNode&);
 };
 } // namespace lox
 

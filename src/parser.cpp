@@ -211,10 +211,28 @@ ASTNodePtr Parser::_parse_statement()
     {
         return _parse_if_statement();
     }
+    else if(_match(TokenType::WHILE))
+    {
+        return _parse_while_statement();
+    }
     else
     {
         return _parse_expression_statement();
     }
+}
+
+ASTNodePtr Parser::_parse_while_statement()
+{
+    auto while_tok = _previous;
+
+    _consume(TokenType::LEFT_PAREN, "Expect '(' after 'while'.");
+    auto condition = _parse_expression();
+    _consume(TokenType::RIGHT_PAREN, "Expect ')' after while condition.");
+
+    auto body = _parse_statement();
+
+    return std::make_unique<ASTNode>(
+        ASTNode{WhileStmtNode{while_tok, std::move(condition), std::move(body)}});
 }
 
 ASTNodePtr Parser::_parse_if_statement()

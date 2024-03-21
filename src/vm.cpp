@@ -121,7 +121,7 @@ InterpretResult VM::_run()
         case OpCode::DEFINE_GLOBAL: {
             const auto* global_name = _chunk.get_constant(_read_byte()).as_object<StringObject>();
 
-            _globals.insert({global_name->value(), _stack.top()});
+            _globals[global_name->value()] = _stack.top();
             _stack.pop();
 
             break;
@@ -178,6 +178,10 @@ InterpretResult VM::_run()
         }
         case OpCode::JUMP: {
             _ip += _read_short();
+            break;
+        }
+        case OpCode::LOOP: {
+            _ip -= _read_short();
             break;
         }
         }
