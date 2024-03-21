@@ -1,11 +1,5 @@
 // this is a comment
 // !(5 - 4 > 3 * 2 == !nil)
-    var a = 3 + 2;
-    var b = 323;
-
-    var a = 1;
-
-    while (a < 2000) {
-        a = a * 2;
-        print a;
-    }
+for (var a = 1024; a > 2; a = a / 2) {
+    print a;
+}

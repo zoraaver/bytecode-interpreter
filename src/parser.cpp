@@ -215,10 +215,92 @@ ASTNodePtr Parser::_parse_statement()
     {
         return _parse_while_statement();
     }
+    else if(_match(TokenType::FOR))
+    {
+        return _parse_for_statement();
+    }
     else
     {
         return _parse_expression_statement();
     }
+}
+
+ASTNodePtr Parser::_parse_for_statement()
+{
+    _consume(TokenType::LEFT_PAREN, "Expected '(' before for condition.");
+
+    auto while_tok = _previous;
+
+    ASTNodePtr initializer;
+
+    if(_match(TokenType::SEMICOLON))
+    {
+        /* Do nothing - empty initializer */
+    }
+    else if(_match(TokenType::VAR))
+    {
+        initializer = _parse_var_declaration();
+    }
+    else
+    {
+        initializer = _parse_expression_statement();
+    }
+
+    ASTNodePtr condition;
+
+    if(_match(TokenType::SEMICOLON))
+    {
+        /* Do nothing - empty condition */
+    }
+    else
+    {
+        condition = _parse_expression();
+        _consume(TokenType::SEMICOLON, "Expected ';' after for condition.");
+    }
+
+    ASTNodePtr increment;
+    Token increment_tok;
+
+    if(_match(TokenType::RIGHT_PAREN))
+    {
+        /* Do nothing - empty increment */
+    }
+    else
+    {
+        increment_tok = _previous;
+        increment = _parse_expression();
+        _consume(TokenType::RIGHT_PAREN, "Expected ')' after for increment.");
+    }
+
+    ASTNodePtr body = _parse_statement();
+
+    if(increment)
+    {
+        auto expr_stmt =
+            std::make_unique<ASTNode>(ExprStmtNode{increment_tok, std::move(increment)});
+        std::vector<ASTNodePtr> stmts;
+        stmts.push_back(std::move(body));
+        stmts.push_back(std::move(expr_stmt));
+        body = std::make_unique<ASTNode>(BlockStmtNode{_previous, std::move(stmts)});
+    }
+
+    if(!condition)
+    {
+        condition = std::make_unique<ASTNode>(ValueNode{while_tok, true});
+    }
+
+    body =
+        std::make_unique<ASTNode>(WhileStmtNode{while_tok, std::move(condition), std::move(body)});
+
+    if(initializer)
+    {
+        std::vector<ASTNodePtr> stmts;
+        stmts.push_back(std::move(initializer));
+        stmts.push_back(std::move(body));
+        body = std::make_unique<ASTNode>(BlockStmtNode{_previous, std::move(stmts)});
+    }
+
+    return body;
 }
 
 ASTNodePtr Parser::_parse_while_statement()

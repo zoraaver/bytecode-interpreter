@@ -173,6 +173,7 @@ class Parser
     ASTNodePtr _parse_block_statement();
     ASTNodePtr _parse_if_statement();
     ASTNodePtr _parse_while_statement();
+    ASTNodePtr _parse_for_statement();
     ASTNodePtr _parse_var_declaration();
     ASTNodePtr _parse_variable();
     ASTNodePtr _parse_assignment_expression(ASTNodePtr);
