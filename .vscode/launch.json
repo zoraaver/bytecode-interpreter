@@ -11,6 +11,18 @@
             "cwd": "${fileDirname}",
             "preLaunchTask": "Build Debug",
             "terminal": "integrated"
+        },
+        {
+            "name": "Run release interpreter",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/install/bin/interpreter",
+            "args": [
+                "${workspaceFolder}/install/examples/test.lox"
+            ],
+            "cwd": "${fileDirname}",
+            "preLaunchTask": "Build Release",
+            "terminal": "integrated"
         }
     ]
 }

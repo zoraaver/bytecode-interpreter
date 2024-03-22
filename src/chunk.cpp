@@ -23,7 +23,7 @@ int Chunk::_constant_instruction(std::string_view name, int offset) const
 {
     auto constant = _code.at(offset + 1);
     std::print("{:16} {:4} ", name, constant);
-    print_value(_constants.at(constant));
+    std::println("{}", _constants.at(constant).to_string());
 
     return offset + 2;
 }
@@ -103,7 +103,6 @@ int Chunk::_disassemble_instruction(int offset) const
         INSTRUCTION(EQUAL, simple_instruction)
         INSTRUCTION(GREATER, simple_instruction)
         INSTRUCTION(LESS, simple_instruction)
-        INSTRUCTION(PRINT, simple_instruction)
         INSTRUCTION(POP, simple_instruction)
         INSTRUCTION(DEFINE_GLOBAL, simple_instruction)
         INSTRUCTION(GET_GLOBAL, simple_instruction)

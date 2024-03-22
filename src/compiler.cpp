@@ -179,13 +179,6 @@ void Compiler::operator()(const GroupExprNode& node)
     std::visit(*this, *node.expr);
 }
 
-void Compiler::operator()(const PrintStmtNode& node)
-{
-    std::visit(*this, *node.expr);
-
-    _emit_bytecode(OpCode::PRINT, node.token.line);
-}
-
 void Compiler::operator()(const ExprStmtNode& node)
 {
     std::visit(*this, *node.expr);

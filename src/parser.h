@@ -19,7 +19,6 @@ struct BinExprNode;
 struct UnaryExprNode;
 struct GroupExprNode;
 struct ValueNode;
-struct PrintStmtNode;
 struct ExprStmtNode;
 struct BlockStmtNode;
 struct VarDeclNode;
@@ -35,7 +34,6 @@ using ASTNode = std::variant<BinExprNode,
                              ValueNode,
                              GroupExprNode,
                              UnaryExprNode,
-                             PrintStmtNode,
                              ExprStmtNode,
                              VarDeclNode,
                              VariableExprNode,
@@ -79,12 +77,6 @@ struct CallNode
     ASTNodePtr callee;
     Token paren;
     std::vector<ASTNodePtr> args;
-};
-
-struct PrintStmtNode
-{
-    Token token;
-    ASTNodePtr expr;
 };
 
 struct ExprStmtNode
@@ -195,7 +187,6 @@ class Parser
     ASTNodePtr _parse_precedence(Precedence precedence);
     ASTNodePtr _parse_declaration();
     ASTNodePtr _parse_statement();
-    ASTNodePtr _parse_print_statement();
     ASTNodePtr _parse_expression_statement();
     ASTNodePtr _parse_block_statement();
     ASTNodePtr _parse_if_statement();

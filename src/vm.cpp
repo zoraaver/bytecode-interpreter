@@ -1,6 +1,9 @@
 #include "vm.h"
 
+#include <cstddef>
+#include <ctime>
 #include <print>
+#include <span>
 #include <string_view>
 
 #include "chunk.h"
@@ -9,10 +12,34 @@
 
 namespace lox
 {
+namespace
+{
+
+Value clock_native(std::span<Value>)
+{
+    return Value{(double)clock() / CLOCKS_PER_SEC};
+}
+
+Value print_native(std::span<Value> args)
+{
+    for(size_t i = 0; i < args.size() - 1; ++i)
+    {
+        std::print("{}, ", args[i].to_string());
+    }
+
+    std::println("{}", args.back().to_string());
+
+    return Value{};
+}
+
+} // namespace
 
 VM::VM(ObjectAllocator& allocator)
     : _allocator(allocator)
-{ }
+{
+    define_native("clock", &clock_native);
+    define_native("print", &print_native);
+}
 
 InterpretResult VM::interpret(FunctionObject& function)
 {
@@ -30,6 +57,16 @@ bool VM::_call_value(const Value& callee, int arg_count)
         if(auto func = callee.as_object()->as<FunctionObject>())
         {
             return _call(func, arg_count);
+        }
+        else if(auto native_func = callee.as_object()->as<NativeFunctionObject>())
+        {
+            auto ret =
+                native_func->native_fn({_stack.top_addr() - arg_count + 1, _stack.top_addr() + 1});
+
+            _stack.pop(arg_count + 1);
+            _stack.push(ret);
+
+            return true;
         }
     }
 
@@ -59,6 +96,17 @@ bool VM::_call(const FunctionObject* callee, int arg_count)
     _current_frame->offset = static_cast<int>(_stack.size() - arg_count - 1);
 
     return true;
+}
+
+void VM::define_native(std::string_view name, NativeFn fn)
+{
+    _stack.push(Value{_allocator.allocate_string(name)});
+    _stack.push(Value{new(_allocator) NativeFunctionObject{fn}});
+
+    _globals[name] = _stack.top();
+
+    _stack.pop();
+    _stack.pop();
 }
 
 InterpretResult VM::_run()
@@ -176,9 +224,6 @@ InterpretResult VM::_run()
             break;
         case OpCode::LESS:
             BINARY_OP(<);
-            break;
-        case OpCode::PRINT:
-            print_value(_stack.pop());
             break;
         case OpCode::POP:
             _stack.pop();

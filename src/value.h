@@ -1,5 +1,8 @@
 #ifndef LOX_VALUE_H
 #define LOX_VALUE_H
+
+#include <print>
+#include <string>
 namespace lox
 {
 enum class ValueType
@@ -130,9 +133,10 @@ public:
     {
         return is_nil() || (is_bool() && !as_bool());
     }
+
+    std::string to_string() const;
 };
 
-void print_value(Value);
 } // namespace lox
 
 #endif // LOX_VALUE_H

@@ -42,7 +42,6 @@ const char* get_token_type_name(TokenType type)
         CASE(IF)
         CASE(NIL)
         CASE(OR)
-        CASE(PRINT)
         CASE(RETURN)
         CASE(SUPER)
         CASE(THIS)
@@ -67,7 +66,6 @@ constexpr std::array<std::pair<std::string_view, TokenType>, 16> keywords = {{
     {"if", TokenType::IF},
     {"nil", TokenType::NIL},
     {"or", TokenType::OR},
-    {"print", TokenType::PRINT},
     {"return", TokenType::RETURN},
     {"super", TokenType::SUPER},
     {"this", TokenType::THIS},

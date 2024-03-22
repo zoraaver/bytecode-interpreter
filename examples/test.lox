@@ -1,9 +1,15 @@
 // this is a comment
 // !(5 - 4 > 3 * 2 == !nil)
 
-fun factorial(n) {
-    if (n <= 1) return 1;
-    return n * factorial(n - 1);
+fun fib(n) {
+    if (n < 2) return n;
+    return fib(n - 2) + fib(n - 1);
 }
 
-print factorial(5);
+print("Hello, world!", 5, print, fib);
+
+var start = clock();
+
+print(fib(35));
+
+print(clock() - start);

@@ -1,13 +1,16 @@
 #ifndef LOX_OBJECT_H
 #define LOX_OBJECT_H
 
-#include "chunk.h"
 #include <cstdint>
+#include <functional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include <absl/container/flat_hash_map.h>
+
+#include "chunk.h"
 
 namespace lox
 {
@@ -24,6 +27,8 @@ public:
 
     void* operator new(size_t size, ObjectAllocator&);
     void* operator new(size_t size) = delete;
+
+    virtual std::string to_string() const = 0;
 
     virtual ~Object();
 };
@@ -44,6 +49,11 @@ public:
         return _value;
     }
 
+    std::string to_string() const override
+    {
+        return std::format("'{}'", _value);
+    }
+
     virtual ~StringObject();
 };
 
@@ -57,7 +67,36 @@ struct FunctionObject : public Object
     const std::string name;
     Chunk chunk;
 
+    std::string to_string() const override
+    {
+        if(name.empty())
+        {
+            return "<script>";
+        }
+
+        return "<fn " + name + ">";
+    }
+
     virtual ~FunctionObject();
+};
+
+using NativeFn = Value (*)(std::span<Value>);
+
+struct NativeFunctionObject : public Object
+{
+
+    NativeFunctionObject(NativeFn native_fn)
+        : native_fn(native_fn)
+    { }
+
+    NativeFn native_fn;
+
+    std::string to_string() const override
+    {
+        return "<native fn>";
+    }
+
+    virtual ~NativeFunctionObject(){};
 };
 
 class ObjectAllocator

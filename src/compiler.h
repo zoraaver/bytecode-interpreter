@@ -128,7 +128,6 @@ public:
     void operator()(const ValueNode&);
     void operator()(const GroupExprNode&);
     void operator()(const UnaryExprNode&);
-    void operator()(const PrintStmtNode&);
     void operator()(const ExprStmtNode&);
     void operator()(const BlockStmtNode&);
     void operator()(const VarDeclNode&);

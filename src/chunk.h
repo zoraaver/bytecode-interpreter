@@ -20,7 +20,6 @@ enum class OpCode : uint8_t
     SET_GLOBAL,
     GET_LOCAL,
     SET_LOCAL,
-    PRINT,
     CONSTANT,
     NIL,
     TRUE,

@@ -9,7 +9,9 @@ Object* ObjectAllocator::allocate(size_t size)
 {
     auto* ptr = static_cast<Object*>(::operator new(size));
 
+#ifdef DEBUG_TRACE_EXECUTION
     std::println("Object allocated: {} bytes", size);
+#endif // DEBUG_TRACE_EXECUTION
 
     _objects.push_back(ptr);
 

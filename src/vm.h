@@ -65,6 +65,11 @@ public:
         _top -= n;
     }
 
+    T* top_addr()
+    {
+        return &top();
+    }
+
     const T& top() const
     {
         return _data[_top - 1];
@@ -156,6 +161,7 @@ class VM
 public:
     VM(ObjectAllocator&);
     InterpretResult interpret(FunctionObject&);
+    void define_native(std::string_view name, NativeFn function);
     absl::flat_hash_map<std::string_view, Value> _globals;
 };
 } // namespace lox

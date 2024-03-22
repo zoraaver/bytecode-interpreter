@@ -73,7 +73,6 @@ Parser::ParseRule Parser::_parse_rules[] = {
     [type_to_int(TokenType::IF)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::NIL)] = {&Parser::_parse_literal, nullptr, Precedence::NONE},
     [type_to_int(TokenType::OR)] = {nullptr, &Parser::_parse_binary_expression, Precedence::OR},
-    [type_to_int(TokenType::PRINT)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::RETURN)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::SUPER)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::THIS)] = {nullptr, nullptr, Precedence::NONE},
@@ -273,11 +272,7 @@ ASTNodePtr Parser::_parse_assignment_expression(ASTNodePtr left)
 
 ASTNodePtr Parser::_parse_statement()
 {
-    if(_match(TokenType::PRINT))
-    {
-        return _parse_print_statement();
-    }
-    else if(_match(TokenType::LEFT_BRACE))
+    if(_match(TokenType::LEFT_BRACE))
     {
         return _parse_block_statement();
     }
@@ -442,15 +437,6 @@ ASTNodePtr Parser::_parse_expression_statement()
     return std::make_unique<ASTNode>(ASTNode{ExprStmtNode{_previous, std::move(expr)}});
 }
 
-ASTNodePtr Parser::_parse_print_statement()
-{
-    auto token = _previous;
-    auto expr = _parse_expression();
-    _consume(TokenType::SEMICOLON, "Expect ';' after value.");
-
-    return std::make_unique<ASTNode>(ASTNode{PrintStmtNode{token, std::move(expr)}});
-}
-
 ASTNodePtr Parser::_parse_literal()
 {
     Value value{};
@@ -610,7 +596,6 @@ void Parser::_synchronize()
         case TokenType::FOR:
         case TokenType::IF:
         case TokenType::WHILE:
-        case TokenType::PRINT:
         case TokenType::RETURN:
             return;
         default:
