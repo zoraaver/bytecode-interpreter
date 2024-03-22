@@ -6,6 +6,7 @@
 #include <print>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "object.h"
 #include "scanner.h"
@@ -23,7 +24,9 @@ constexpr uint8_t type_to_int(TokenType type)
 } // namespace
 
 Parser::ParseRule Parser::_parse_rules[] = {
-    [type_to_int(TokenType::LEFT_PAREN)] = {&Parser::_parse_grouping, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::LEFT_PAREN)] = {&Parser::_parse_grouping,
+                                            &Parser::_parse_call,
+                                            Precedence::CALL},
     [type_to_int(TokenType::RIGHT_PAREN)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::LEFT_BRACE)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::RIGHT_BRACE)] = {nullptr, nullptr, Precedence::NONE},
@@ -230,6 +233,30 @@ ASTNodePtr Parser::_parse_variable()
     return std::make_unique<ASTNode>(ASTNode{VariableExprNode{_previous}});
 }
 
+ASTNodePtr Parser::_parse_call(ASTNodePtr callee)
+{
+    auto paren = _previous;
+
+    std::vector<ASTNodePtr> args;
+    if(_current.type != TokenType::RIGHT_PAREN)
+    {
+        do
+        {
+            args.push_back(_parse_expression());
+
+            if(args.size() >= 255)
+            {
+                _error("Function cannot take more than 255 arguments.");
+                return nullptr;
+            }
+        } while(_match(TokenType::COMMA));
+    }
+
+    _consume(TokenType::RIGHT_PAREN, "Expect ')' after arguments.");
+
+    return std::make_unique<ASTNode>(ASTNode{CallNode{std::move(callee), paren, std::move(args)}});
+}
+
 ASTNodePtr Parser::_parse_assignment_expression(ASTNodePtr left)
 {
     auto var = std::get_if<VariableExprNode>(left.get());
@@ -266,10 +293,30 @@ ASTNodePtr Parser::_parse_statement()
     {
         return _parse_for_statement();
     }
+    else if(_match(TokenType::RETURN))
+    {
+        return _parse_return_statement();
+    }
     else
     {
         return _parse_expression_statement();
     }
+}
+
+ASTNodePtr Parser::_parse_return_statement()
+{
+    auto keyword = _previous;
+
+    ASTNodePtr value = nullptr;
+
+    if(_current.type != TokenType::SEMICOLON)
+    {
+        value = _parse_expression();
+    }
+
+    _consume(TokenType::SEMICOLON, "Expected ';' after return statement.");
+
+    return std::make_unique<ASTNode>(ASTNode{ReturnStmtNode{keyword, std::move(value)}});
 }
 
 ASTNodePtr Parser::_parse_for_statement()

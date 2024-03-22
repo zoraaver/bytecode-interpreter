@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <variant>
+#include <vector>
 
 namespace lox
 {
@@ -27,6 +28,8 @@ struct AssignmentExprNode;
 struct IfStmtNode;
 struct WhileStmtNode;
 struct FunDeclNode;
+struct CallNode;
+struct ReturnStmtNode;
 
 using ASTNode = std::variant<BinExprNode,
                              ValueNode,
@@ -40,7 +43,9 @@ using ASTNode = std::variant<BinExprNode,
                              BlockStmtNode,
                              IfStmtNode,
                              WhileStmtNode,
-                             FunDeclNode>;
+                             FunDeclNode,
+                             CallNode,
+                             ReturnStmtNode>;
 
 using ASTNodePtr = std::unique_ptr<ASTNode>;
 
@@ -67,6 +72,13 @@ struct ValueNode
 {
     Token token;
     Value value;
+};
+
+struct CallNode
+{
+    ASTNodePtr callee;
+    Token paren;
+    std::vector<ASTNodePtr> args;
 };
 
 struct PrintStmtNode
@@ -101,6 +113,12 @@ struct WhileStmtNode
     Token while_tok;
     ASTNodePtr condition;
     ASTNodePtr body;
+};
+
+struct ReturnStmtNode
+{
+    Token keyword;
+    ASTNodePtr value;
 };
 
 struct FunDeclNode
@@ -183,9 +201,11 @@ class Parser
     ASTNodePtr _parse_if_statement();
     ASTNodePtr _parse_while_statement();
     ASTNodePtr _parse_for_statement();
+    ASTNodePtr _parse_return_statement();
     ASTNodePtr _parse_var_declaration();
     ASTNodePtr _parse_function_declaration();
     ASTNodePtr _parse_variable();
+    ASTNodePtr _parse_call(ASTNodePtr);
     ASTNodePtr _parse_assignment_expression(ASTNodePtr);
 
     static ParseRule _parse_rules[];

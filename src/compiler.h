@@ -22,12 +22,21 @@ public:
         RedefinedVariableInSameScope,
         ChunkConstantLimitExceeded,
         JumpLimitExceeded,
-        LoopLimitExceeded
+        LoopLimitExceeded,
+        ReturnOutsideFunction
     };
 
 private:
     FunctionObject* _function = nullptr;
     ObjectAllocator& _allocator;
+
+    enum class FunctionType
+    {
+        SCRIPT,
+        FUNCTION
+    };
+
+    const FunctionType _type = FunctionType::SCRIPT;
 
     struct Local
     {
@@ -65,6 +74,7 @@ private:
 
     void _emit_return(int line)
     {
+        _emit_bytecode(OpCode::NIL, line);
         _emit_bytecode(OpCode::RETURN, line);
     }
 
@@ -110,7 +120,7 @@ private:
     std::string _get_error_message(const Exception&) const;
 
 public:
-    Compiler(ObjectAllocator&);
+    Compiler(ObjectAllocator&, FunctionType = FunctionType::SCRIPT);
 
     std::expected<FunctionObject, Error> compile(const std::vector<ASTNodePtr>& declarations);
 
@@ -126,7 +136,9 @@ public:
     void operator()(const AssignmentExprNode&);
     void operator()(const IfStmtNode&);
     void operator()(const WhileStmtNode&);
+    void operator()(const ReturnStmtNode&);
     void operator()(const FunDeclNode&);
+    void operator()(const CallNode&);
 };
 } // namespace lox
 

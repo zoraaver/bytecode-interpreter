@@ -1,25 +1,9 @@
 // this is a comment
 // !(5 - 4 > 3 * 2 == !nil)
 
-var a = 13;
-var b = 43;
-
-fun test(a, b, c) {
-    print a;
-    print b;
+fun factorial(n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
 }
 
-print test;
-
-print a + b;
-
-for (var a = 16; a > 2; a = a / 2) {
-    print a;
-}
-
-var c = "hel";
-
-print c + "masdf";
-
-print "hel" + "lo" == "hello";
-
+print factorial(5);

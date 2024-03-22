@@ -110,6 +110,7 @@ int Chunk::_disassemble_instruction(int offset) const
         INSTRUCTION(SET_GLOBAL, simple_instruction)
         INSTRUCTION(GET_LOCAL, _byte_instruction)
         INSTRUCTION(SET_LOCAL, _byte_instruction)
+        INSTRUCTION(CALL, _byte_instruction)
         INSTRUCTION_1(JUMP_IF_FALSE, _jump_instruction, 1)
         INSTRUCTION_1(JUMP_IF_TRUE, _jump_instruction, 1)
         INSTRUCTION_1(JUMP, _jump_instruction, 1)

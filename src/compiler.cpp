@@ -2,8 +2,10 @@
 
 #include <cassert>
 #include <cstdint>
+#include <format>
 #include <print>
 #include <string_view>
+#include <sys/stat.h>
 #include <variant>
 #include <vector>
 
@@ -16,8 +18,9 @@
 namespace lox
 {
 
-Compiler::Compiler(ObjectAllocator& allocator)
+Compiler::Compiler(ObjectAllocator& allocator, FunctionType type)
     : _allocator(allocator)
+    , _type(type)
 { }
 
 std::expected<FunctionObject, Compiler::Error>
@@ -85,6 +88,9 @@ std::string Compiler::_get_error_message(const Exception& ex) const
         return "Jump limit exceeded";
     case Error::LoopLimitExceeded:
         return "Loop limit exceeded";
+    case Error::ReturnOutsideFunction:
+        return std::format(
+            "Return outside function: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
     }
 }
 
@@ -234,9 +240,27 @@ void Compiler::operator()(const WhileStmtNode& node)
     _emit_bytecode(OpCode::POP, node.while_tok.line);
 }
 
+void Compiler::operator()(const ReturnStmtNode& node)
+{
+    if(_type == FunctionType::SCRIPT)
+    {
+        throw Exception{node.keyword, Error::ReturnOutsideFunction};
+    }
+
+    if(node.value)
+    {
+        std::visit(*this, *node.value);
+        _emit_bytecode(OpCode::RETURN, node.keyword.line);
+    }
+    else
+    {
+        _emit_return(node.keyword.line);
+    }
+}
+
 void Compiler::operator()(const FunDeclNode& node)
 {
-    Compiler func_compiler{_allocator};
+    Compiler func_compiler{_allocator, FunctionType::FUNCTION};
 
     auto body = std::get_if<BlockStmtNode>(node.body.get());
     assert(body && "Function body is not a block statement");
@@ -247,6 +271,18 @@ void Compiler::operator()(const FunDeclNode& node)
         static_cast<uint8_t>(OpCode::CONSTANT), _make_constant(Value{func}), node.name.line);
 
     _define_variable(node.name);
+}
+
+void Compiler::operator()(const CallNode& node)
+{
+    std::visit(*this, *node.callee);
+
+    for(auto& arg : node.args)
+    {
+        std::visit(*this, *arg);
+    }
+
+    _emit_bytes(static_cast<uint8_t>(OpCode::CALL), node.args.size(), node.paren.line);
 }
 
 void Compiler::_emit_loop(uint32_t loop_start, const Token& tok)

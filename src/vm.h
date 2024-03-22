@@ -11,6 +11,7 @@
 
 #include "chunk.h"
 #include "object.h"
+#include "value.h"
 
 namespace lox
 {
@@ -43,6 +44,11 @@ public:
         ++_top;
     }
 
+    size_t size() const
+    {
+        return _top;
+    }
+
     T* data()
     {
         return _data.get();
@@ -52,6 +58,11 @@ public:
     {
         --_top;
         return _data[_top];
+    }
+
+    void pop(size_t n)
+    {
+        _top -= n;
     }
 
     const T& top() const
@@ -81,7 +92,7 @@ class VM
     {
         const FunctionObject* function;
         const uint8_t* ip;
-        Value* slots;
+        int offset;
     };
 
     static constexpr int MAX_FRAMES = 64;
@@ -99,12 +110,33 @@ class VM
     {
         std::cerr << std::vformat(format, std::make_format_args(args...)) << '\n';
 
-        size_t instruction = _current_frame->ip - _current_chunk().get_code() - 1;
-        int line = _current_chunk().get_line(instruction);
-        std::println(stderr, "[line {}] in script", line);
+        for(int i = _frame_count - 1; i >= 0; i--)
+        {
+            auto* frame = &_frames[i];
+            auto* function = frame->function;
+            size_t instruction = frame->ip - function->chunk.get_code() - 1;
+
+            int line = function->chunk.get_line(instruction);
+
+            std::print(stderr, "[line {}] in ", line);
+
+            if(function->name.empty())
+            {
+                std::println(stderr, "script");
+            }
+            else
+            {
+                std::println(stderr, "{}()", function->name);
+            }
+        }
     }
 
+    bool _call_value(const Value& callee, int arg_count);
+
+    bool _call(const FunctionObject* callee, int arg_count);
+
     InterpretResult _run();
+
     uint8_t _read_byte()
     {
         return *_current_frame->ip++;
