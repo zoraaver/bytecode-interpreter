@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <print>
 #include <utility>
 #include <variant>
@@ -134,6 +135,10 @@ ASTNodePtr Parser::_parse_declaration()
     {
         ret = _parse_var_declaration();
     }
+    else if(_match(TokenType::FUN))
+    {
+        ret = _parse_function_declaration();
+    }
     else
     {
         ret = _parse_statement();
@@ -159,6 +164,48 @@ ASTNodePtr Parser::_parse_block_statement()
     _consume(TokenType::RIGHT_BRACE, "Expected '}' after block.");
 
     return std::make_unique<ASTNode>(ASTNode{BlockStmtNode{_previous, std::move(statements)}});
+}
+
+ASTNodePtr Parser::_parse_function_declaration()
+{
+    auto func_name = _consume(TokenType::IDENTIFIER, "Expected function name");
+
+    if(!func_name)
+    {
+        return nullptr;
+    }
+
+    _consume(TokenType::LEFT_PAREN, "Expected '(' after function name.");
+
+    std::vector<Token> params;
+
+    if(_current.type != TokenType::RIGHT_PAREN)
+    {
+        do
+        {
+            auto param = _consume(TokenType::IDENTIFIER, "Expected parameter name.");
+
+            if(!param)
+            {
+                return nullptr;
+            }
+
+            params.push_back(param.value());
+
+            if(params.size() >= 255)
+            {
+                _error("Function cannot take more than 255 parameters.");
+                return nullptr;
+            }
+        } while(_match(TokenType::COMMA));
+    }
+    _consume(TokenType::RIGHT_PAREN, "Expected ') after parameter list.");
+    _consume(TokenType::LEFT_BRACE, "Expected '{' before function body.");
+
+    auto body = _parse_block_statement();
+
+    return std::make_unique<ASTNode>(
+        ASTNode{FunDeclNode{func_name.value(), std::move(params), std::move(body)}});
 }
 
 ASTNodePtr Parser::_parse_var_declaration()
@@ -485,15 +532,18 @@ bool Parser::_match(TokenType type)
     return true;
 }
 
-void Parser::_consume(TokenType type, std::string_view message)
+std::optional<Token> Parser::_consume(TokenType type, std::string_view message)
 {
     if(_current.type == type)
     {
+        const auto temp = _current;
         _advance();
-        return;
+        return temp;
     }
 
     _error_at_current(message);
+
+    return std::nullopt;
 }
 
 void Parser::_synchronize()

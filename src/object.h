@@ -2,6 +2,7 @@
 #define LOX_OBJECT_H
 
 #include "chunk.h"
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -52,7 +53,7 @@ struct FunctionObject : public Object
         : name(std::move(name))
         , arity(arity){};
 
-    const int arity;
+    const uint8_t arity;
     const std::string name;
     Chunk chunk;
 

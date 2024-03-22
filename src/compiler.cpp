@@ -1,7 +1,9 @@
 #include "compiler.h"
 
+#include <cassert>
 #include <cstdint>
 #include <print>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -24,8 +26,6 @@ Compiler::compile(const std::vector<ASTNodePtr>& declarations)
     FunctionObject func{"", 0};
     _function = &func;
 
-    int line = -1;
-
     for(auto& node : declarations)
     {
         try
@@ -43,6 +43,30 @@ Compiler::compile(const std::vector<ASTNodePtr>& declarations)
     _emit_return(0);
 
     return func;
+}
+
+FunctionObject* Compiler::_compile_function(std::string_view name,
+                                            const std::vector<Token>& params,
+                                            const std::vector<ASTNodePtr>& declarations)
+{
+    _function =
+        new(_allocator) FunctionObject{std::string{name}, static_cast<uint8_t>(params.size())};
+
+    _begin_scope();
+
+    for(auto& param : params)
+    {
+        _define_variable(param);
+    }
+
+    for(auto& node : declarations)
+    {
+        std::visit(*this, *node);
+    }
+
+    _emit_return(0);
+
+    return _function;
 }
 
 std::string Compiler::_get_error_message(const Exception& ex) const
@@ -210,6 +234,21 @@ void Compiler::operator()(const WhileStmtNode& node)
     _emit_bytecode(OpCode::POP, node.while_tok.line);
 }
 
+void Compiler::operator()(const FunDeclNode& node)
+{
+    Compiler func_compiler{_allocator};
+
+    auto body = std::get_if<BlockStmtNode>(node.body.get());
+    assert(body && "Function body is not a block statement");
+
+    auto func = func_compiler._compile_function(node.name.lexeme, node.params, body->statements);
+
+    _emit_bytes(
+        static_cast<uint8_t>(OpCode::CONSTANT), _make_constant(Value{func}), node.name.line);
+
+    _define_variable(node.name);
+}
+
 void Compiler::_emit_loop(uint32_t loop_start, const Token& tok)
 {
     _emit_bytecode(OpCode::LOOP, tok.line);
@@ -268,21 +307,12 @@ void Compiler::_end_scope(const Token& brace)
     }
 }
 
-void Compiler::operator()(const VarDeclNode& node)
+void Compiler::_define_variable(const Token& identifier)
 {
-    if(node.initializer)
-    {
-        std::visit(*this, *node.initializer);
-    }
-    else
-    {
-        _emit_bytecode(OpCode::NIL, node.identifier.line);
-    }
-
     if(_scope_depth == 0)
     {
-        auto index = _make_constant(Value{_allocator.allocate_string(node.identifier.lexeme)});
-        _emit_bytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), index, node.identifier.line);
+        auto index = _make_constant(Value{_allocator.allocate_string(identifier.lexeme)});
+        _emit_bytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), index, identifier.line);
 
         return;
     }
@@ -298,18 +328,32 @@ void Compiler::operator()(const VarDeclNode& node)
             break;
         }
 
-        if(local.name.lexeme == node.identifier.lexeme)
+        if(local.name.lexeme == identifier.lexeme)
         {
-            throw Exception{node.identifier, Error::RedefinedVariableInSameScope};
+            throw Exception{identifier, Error::RedefinedVariableInSameScope};
         }
     }
 
     if(_local_count == (sizeof(_locals) / sizeof(Local)))
     {
-        throw Exception{node.identifier, Error::LocalVariableLimitExceeded};
+        throw Exception{identifier, Error::LocalVariableLimitExceeded};
     }
 
-    _locals[_local_count++] = {.name = node.identifier, .depth = _scope_depth};
+    _locals[_local_count++] = {.name = identifier, .depth = _scope_depth};
+}
+
+void Compiler::operator()(const VarDeclNode& node)
+{
+    if(node.initializer)
+    {
+        std::visit(*this, *node.initializer);
+    }
+    else
+    {
+        _emit_bytecode(OpCode::NIL, node.identifier.line);
+    }
+
+    _define_variable(node.identifier);
 }
 
 void Compiler::operator()(const VariableExprNode& node)

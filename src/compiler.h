@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <expected>
+#include <string_view>
 
 #include "chunk.h"
 #include "object.h"
@@ -25,14 +26,7 @@ public:
     };
 
 private:
-    enum class FunctionType
-    {
-        SCRIPT,
-        FUNCTION
-    };
-
     FunctionObject* _function = nullptr;
-    FunctionType _type = FunctionType::SCRIPT;
     ObjectAllocator& _allocator;
 
     struct Local
@@ -90,6 +84,13 @@ private:
     void _compile_and_expression(const BinExprNode&);
     void _compile_or_expression(const BinExprNode&);
 
+    void _define_variable(const Token& identifier);
+    // We allocate a function on the heap and return since the object needs to
+    // live for the duration of the program.
+    FunctionObject* _compile_function(std::string_view name,
+                                      const std::vector<Token>& params,
+                                      const std::vector<ASTNodePtr>& declarations);
+
     class Exception : public std::exception
     {
     public:
@@ -125,6 +126,7 @@ public:
     void operator()(const AssignmentExprNode&);
     void operator()(const IfStmtNode&);
     void operator()(const WhileStmtNode&);
+    void operator()(const FunDeclNode&);
 };
 } // namespace lox
 

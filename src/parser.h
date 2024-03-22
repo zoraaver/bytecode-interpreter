@@ -26,6 +26,7 @@ struct VariableExprNode;
 struct AssignmentExprNode;
 struct IfStmtNode;
 struct WhileStmtNode;
+struct FunDeclNode;
 
 using ASTNode = std::variant<BinExprNode,
                              ValueNode,
@@ -38,25 +39,28 @@ using ASTNode = std::variant<BinExprNode,
                              AssignmentExprNode,
                              BlockStmtNode,
                              IfStmtNode,
-                             WhileStmtNode>;
+                             WhileStmtNode,
+                             FunDeclNode>;
+
+using ASTNodePtr = std::unique_ptr<ASTNode>;
 
 struct BinExprNode
 {
     Token op;
-    std::unique_ptr<ASTNode> left;
-    std::unique_ptr<ASTNode> right;
+    ASTNodePtr left;
+    ASTNodePtr right;
 };
 
 struct GroupExprNode
 {
     Token token;
-    std::unique_ptr<ASTNode> expr;
+    ASTNodePtr expr;
 };
 
 struct UnaryExprNode
 {
     Token op;
-    std::unique_ptr<ASTNode> right;
+    ASTNodePtr right;
 };
 
 struct ValueNode
@@ -68,41 +72,48 @@ struct ValueNode
 struct PrintStmtNode
 {
     Token token;
-    std::unique_ptr<ASTNode> expr;
+    ASTNodePtr expr;
 };
 
 struct ExprStmtNode
 {
     Token token;
-    std::unique_ptr<ASTNode> expr;
+    ASTNodePtr expr;
 };
 
 struct BlockStmtNode
 {
     Token end_brace;
-    std::vector<std::unique_ptr<ASTNode>> statements;
+    std::vector<ASTNodePtr> statements;
 };
 
 struct IfStmtNode
 {
     Token if_tok;
     std::optional<Token> else_tok;
-    std::unique_ptr<ASTNode> condition;
-    std::unique_ptr<ASTNode> then_branch;
-    std::unique_ptr<ASTNode> else_branch;
+    ASTNodePtr condition;
+    ASTNodePtr then_branch;
+    ASTNodePtr else_branch;
 };
 
 struct WhileStmtNode
 {
     Token while_tok;
-    std::unique_ptr<ASTNode> condition;
-    std::unique_ptr<ASTNode> body;
+    ASTNodePtr condition;
+    ASTNodePtr body;
+};
+
+struct FunDeclNode
+{
+    Token name;
+    std::vector<Token> params;
+    ASTNodePtr body;
 };
 
 struct VarDeclNode
 {
     Token identifier;
-    std::unique_ptr<ASTNode> initializer;
+    ASTNodePtr initializer;
 };
 
 struct VariableExprNode
@@ -113,10 +124,8 @@ struct VariableExprNode
 struct AssignmentExprNode
 {
     VariableExprNode target;
-    std::unique_ptr<ASTNode> value;
+    ASTNodePtr value;
 };
-
-using ASTNodePtr = std::unique_ptr<ASTNode>;
 
 class Parser
 {
@@ -127,7 +136,7 @@ class Parser
     bool _had_error = false;
     bool _panic_mode = false;
 
-    void _consume(TokenType type, std::string_view message);
+    std::optional<Token> _consume(TokenType type, std::string_view message);
 
     void _error_at_current(std::string_view message);
     void _error(std::string_view message);
@@ -175,6 +184,7 @@ class Parser
     ASTNodePtr _parse_while_statement();
     ASTNodePtr _parse_for_statement();
     ASTNodePtr _parse_var_declaration();
+    ASTNodePtr _parse_function_declaration();
     ASTNodePtr _parse_variable();
     ASTNodePtr _parse_assignment_expression(ASTNodePtr);
 
