@@ -10,14 +10,19 @@
 namespace lox
 {
 
-VM::VM(const Chunk& chunk, ObjectAllocator& allocator)
-    : _chunk(chunk)
-    , _ip(chunk.get_code())
-    , _allocator(allocator)
+VM::VM(ObjectAllocator& allocator)
+    : _allocator(allocator)
 { }
 
-InterpretResult VM::interpret()
+InterpretResult VM::interpret(FunctionObject& function)
 {
+    _stack.push(Value{&function});
+    _current_frame = &_frames[_frame_count++];
+
+    _current_frame->function = &function;
+    _current_frame->ip = function.chunk.get_code();
+    _current_frame->slots = _stack.data();
+
     return _run();
 }
 
@@ -39,14 +44,14 @@ InterpretResult VM::_run()
     while(true)
     {
 #ifdef DEBUG_TRACE_EXECUTION
-        _chunk.disassemble_instruction(_ip);
+        _current_chunk().disassemble_instruction(_current_frame->ip);
 #endif
         switch(auto instruction = static_cast<OpCode>(_read_byte()); instruction)
         {
         case OpCode::RETURN:
             return InterpretResult::OK;
         case OpCode::CONSTANT: {
-            auto& value = _chunk.get_constant(_read_byte());
+            auto& value = _current_chunk().get_constant(_read_byte());
             _stack.push(value);
             break;
         }
@@ -67,10 +72,12 @@ InterpretResult VM::_run()
                 _stack.push(Value{a.as_number() + b.as_number()});
                 break;
             }
-            else if(auto a_str = a.as_object<StringObject>())
+            else if(a.is_object() && b.is_object())
             {
-                auto b_str = b.as_object<StringObject>();
-                if(b_str)
+                const auto* a_str = a.as_object()->as<StringObject>();
+                const auto* b_str = b.as_object()->as<StringObject>();
+
+                if(a_str && b_str)
                 {
                     _stack.push(Value{_allocator.allocate_string(a_str->value() + b_str->value())});
                     break;
@@ -119,7 +126,8 @@ InterpretResult VM::_run()
             _stack.pop();
             break;
         case OpCode::DEFINE_GLOBAL: {
-            const auto* global_name = _chunk.get_constant(_read_byte()).as_object<StringObject>();
+            const auto* global_name =
+                _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
 
             _globals[global_name->value()] = _stack.top();
             _stack.pop();
@@ -127,7 +135,8 @@ InterpretResult VM::_run()
             break;
         }
         case OpCode::GET_GLOBAL: {
-            const auto* global_name = _chunk.get_constant(_read_byte()).as_object<StringObject>();
+            const auto* global_name =
+                _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
 
             auto it = _globals.find(global_name->value());
 
@@ -141,7 +150,8 @@ InterpretResult VM::_run()
             break;
         }
         case OpCode::SET_GLOBAL: {
-            const auto* global_name = _chunk.get_constant(_read_byte()).as_object<StringObject>();
+            const auto* global_name =
+                _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
 
             auto it = _globals.find(global_name->value());
 
@@ -156,32 +166,32 @@ InterpretResult VM::_run()
         }
         case OpCode::GET_LOCAL: {
             auto slot = _read_byte();
-            _stack.push(_stack[slot]);
+            _stack.push(_current_frame->slots[slot]);
             break;
         }
         case OpCode::SET_LOCAL: {
             auto slot = _read_byte();
-            _stack[slot] = _stack.top();
+            _current_frame->slots[slot] = _stack.top();
             break;
         }
         case OpCode::JUMP_IF_FALSE: {
             auto jmp = _read_short();
             if(_stack.top().is_falsey())
-                _ip += jmp;
+                _current_frame->ip += jmp;
             break;
         }
         case OpCode::JUMP_IF_TRUE: {
             auto jmp = _read_short();
             if(!_stack.top().is_falsey())
-                _ip += jmp;
+                _current_frame->ip += jmp;
             break;
         }
         case OpCode::JUMP: {
-            _ip += _read_short();
+            _current_frame->ip += _read_short();
             break;
         }
         case OpCode::LOOP: {
-            _ip -= _read_short();
+            _current_frame->ip -= _read_short();
             break;
         }
         }

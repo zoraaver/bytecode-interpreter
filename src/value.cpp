@@ -20,9 +20,20 @@ void print_value(Value value)
         std::println("nil");
         return;
     case ValueType::OBJECT:
-        if(const auto* str = value.as_object<StringObject>())
+        if(const auto* str = value.as_object()->as<StringObject>())
         {
             std::println("'{}'", str->value());
+        }
+        else if(const auto* func = value.as_object()->as<FunctionObject>())
+        {
+            if(func->name.empty())
+            {
+                std::println("<script>");
+            }
+            else
+            {
+                std::println("<fn {}>", func->name);
+            }
         }
         else
         {

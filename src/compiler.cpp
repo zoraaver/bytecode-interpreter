@@ -18,11 +18,11 @@ Compiler::Compiler(ObjectAllocator& allocator)
     : _allocator(allocator)
 { }
 
-std::expected<Chunk, Compiler::Error> Compiler::compile(const std::vector<ASTNodePtr>& declarations)
+std::expected<FunctionObject, Compiler::Error>
+Compiler::compile(const std::vector<ASTNodePtr>& declarations)
 {
-    Chunk chunk;
-
-    _current_chunk = &chunk;
+    FunctionObject func{"", 0};
+    _function = &func;
 
     int line = -1;
 
@@ -42,7 +42,7 @@ std::expected<Chunk, Compiler::Error> Compiler::compile(const std::vector<ASTNod
 
     _emit_return(0);
 
-    return chunk;
+    return func;
 }
 
 std::string Compiler::_get_error_message(const Exception& ex) const
@@ -192,7 +192,7 @@ void Compiler::operator()(const IfStmtNode& node)
 
 void Compiler::operator()(const WhileStmtNode& node)
 {
-    uint32_t loop_start = _current_chunk->size();
+    uint32_t loop_start = _current_chunk().size();
     std::visit(*this, *node.condition);
 
     auto exit_jump = _emit_jump(OpCode::JUMP_IF_FALSE, node.while_tok.line);
@@ -214,7 +214,7 @@ void Compiler::_emit_loop(uint32_t loop_start, const Token& tok)
 {
     _emit_bytecode(OpCode::LOOP, tok.line);
 
-    uint32_t loop_offset = _current_chunk->size() - loop_start + 2;
+    uint32_t loop_offset = _current_chunk().size() - loop_start + 2;
 
     if(loop_offset > UINT16_MAX)
     {
@@ -226,15 +226,15 @@ void Compiler::_emit_loop(uint32_t loop_start, const Token& tok)
 
 void Compiler::_patch_jump(int offset, const Token& tok)
 {
-    uint32_t jump = (_current_chunk->size() - 2) - offset;
+    uint32_t jump = (_current_chunk().size() - 2) - offset;
 
     if(jump > UINT16_MAX)
     {
         throw Exception{tok, Error::JumpLimitExceeded};
     }
 
-    (*_current_chunk)[offset] = (jump >> 8) & 0xff;
-    (*_current_chunk)[offset + 1] = jump & 0xff;
+    _current_chunk()[offset] = (jump >> 8) & 0xff;
+    _current_chunk()[offset + 1] = jump & 0xff;
 }
 
 int Compiler::_emit_jump(OpCode instruction, int line)
@@ -242,7 +242,7 @@ int Compiler::_emit_jump(OpCode instruction, int line)
     _emit_bytecode(instruction, line);
     _emit_bytes(0xff, 0xff, line);
 
-    return _current_chunk->size() - 2;
+    return _current_chunk().size() - 2;
 }
 
 void Compiler::operator()(const BlockStmtNode& block_node)
@@ -395,12 +395,12 @@ void Compiler::operator()(const UnaryExprNode& node)
 
 void Compiler::_emit_byte(uint8_t byte, int line)
 {
-    _current_chunk->write(byte, line);
+    _current_chunk().write(byte, line);
 }
 
 uint8_t Compiler::_make_constant(Value value)
 {
-    auto index = _current_chunk->add_constant(value);
+    auto index = _current_chunk().add_constant(value);
 
     if(index > UINT8_MAX)
     {

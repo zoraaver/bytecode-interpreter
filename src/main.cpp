@@ -34,7 +34,7 @@ void repl(lox::VM& vm)
     for(std::string line; std::getline(std::cin, line);)
     {
         std::print("> ");
-        vm.interpret();
+        // vm.interpret();
     }
 }
 
@@ -55,15 +55,15 @@ void run_file(std::string_view filename)
 
     lox::Compiler compiler{allocator};
 
-    auto chunk = compiler.compile(declarations.value());
+    auto script = compiler.compile(declarations.value());
 
-    if(!chunk)
+    if(!script)
     {
         std::exit(70);
     }
 
-    lox::VM vm{chunk.value(), allocator};
-    auto result = vm.interpret();
+    lox::VM vm{allocator};
+    auto result = vm.interpret(script.value());
 
     if(result == lox::InterpretResult::RUNTIME_ERROR)
         std::exit(70);

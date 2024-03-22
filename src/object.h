@@ -1,6 +1,7 @@
 #ifndef LOX_OBJECT_H
 #define LOX_OBJECT_H
 
+#include "chunk.h"
 #include <string>
 #include <string_view>
 #include <vector>
@@ -23,7 +24,6 @@ public:
     void* operator new(size_t size, ObjectAllocator&);
     void* operator new(size_t size) = delete;
 
-    virtual bool operator==(const Object& rhs) const = 0;
     virtual ~Object();
 };
 
@@ -43,9 +43,20 @@ public:
         return _value;
     }
 
-    bool operator==(const Object& rhs) const override;
-
     virtual ~StringObject();
+};
+
+struct FunctionObject : public Object
+{
+    FunctionObject(std::string name, int arity)
+        : name(std::move(name))
+        , arity(arity){};
+
+    const int arity;
+    const std::string name;
+    Chunk chunk;
+
+    virtual ~FunctionObject();
 };
 
 class ObjectAllocator

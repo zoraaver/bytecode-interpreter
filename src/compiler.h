@@ -1,6 +1,7 @@
 #ifndef LOX_COMPILER_H
 #define LOX_COMPILER_H
 
+#include <cassert>
 #include <cstdint>
 #include <expected>
 
@@ -24,7 +25,14 @@ public:
     };
 
 private:
-    Chunk* _current_chunk = nullptr;
+    enum class FunctionType
+    {
+        SCRIPT,
+        FUNCTION
+    };
+
+    FunctionObject* _function = nullptr;
+    FunctionType _type = FunctionType::SCRIPT;
     ObjectAllocator& _allocator;
 
     struct Local
@@ -36,8 +44,15 @@ private:
 
     // To keep track of scopes
     int _scope_depth = 0;
-    int _local_count = 0;
-    Local _locals[UINT8_MAX + 1];
+    // We reserve the first local slot for internal VM use.
+    int _local_count = 1;
+    Local _locals[UINT8_MAX + 1] = {{.name = Token{}, .depth = 0}};
+
+    Chunk& _current_chunk()
+    {
+        assert(_function && "Function is not defined");
+        return _function->chunk;
+    }
 
     void _begin_scope()
     {
@@ -96,7 +111,7 @@ private:
 public:
     Compiler(ObjectAllocator&);
 
-    std::expected<Chunk, Error> compile(const std::vector<ASTNodePtr>& declarations);
+    std::expected<FunctionObject, Error> compile(const std::vector<ASTNodePtr>& declarations);
 
     void operator()(const BinExprNode&);
     void operator()(const ValueNode&);

@@ -1,8 +1,5 @@
 #ifndef LOX_VALUE_H
 #define LOX_VALUE_H
-
-#include "object.h"
-
 namespace lox
 {
 enum class ValueType
@@ -12,6 +9,8 @@ enum class ValueType
     NUMBER,
     OBJECT
 };
+
+class Object;
 
 class Value
 {
@@ -63,10 +62,9 @@ public:
         return type == ValueType::NIL;
     }
 
-    template <typename T>
     bool is_object() const
     {
-        return type == ValueType::OBJECT && as.obj->as<T>() != nullptr;
+        return type == ValueType::OBJECT;
     }
 
     bool as_bool() const
@@ -79,10 +77,9 @@ public:
         return as.number;
     }
 
-    template <typename T>
-    const T* as_object() const
+    const Object* as_object() const
     {
-        return type == ValueType::OBJECT ? as.obj->as<T>() : nullptr;
+        return as.obj;
     }
 
     void negate()
@@ -124,7 +121,8 @@ public:
         case ValueType::NIL:
             return true;
         case lox::ValueType::OBJECT:
-            return *as.obj == *other.as.obj;
+            // We intern all strings so all objects can be compared by address.
+            return as.obj == other.as.obj;
         }
     }
 

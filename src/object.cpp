@@ -27,10 +27,12 @@ StringObject* ObjectAllocator::allocate_string(std::string_view value)
 
     auto* string = new(*this) StringObject(value);
 
-    _interned_strings.emplace(string->value(), string);
+    _interned_strings[string->value()] = string;
 
     return string;
 }
+
+FunctionObject::~FunctionObject() { }
 
 ObjectAllocator::~ObjectAllocator()
 {
@@ -46,13 +48,6 @@ void* Object::operator new(size_t size, ObjectAllocator& allocator)
 }
 
 Object::~Object() { }
-
-bool StringObject::operator==(const Object& rhs) const
-{
-    // We intern all strings so comparing addresses is sufficient to show two
-    // strings are equal.
-    return this == &rhs;
-}
 
 StringObject::~StringObject(){};
 } // namespace lox
