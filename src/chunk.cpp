@@ -4,6 +4,7 @@
 #include <print>
 #include <string_view>
 
+#include "object.h"
 #include "value.h"
 
 namespace lox
@@ -107,13 +108,35 @@ int Chunk::_disassemble_instruction(int offset) const
         INSTRUCTION(DEFINE_GLOBAL, simple_instruction)
         INSTRUCTION(GET_GLOBAL, simple_instruction)
         INSTRUCTION(SET_GLOBAL, simple_instruction)
+        INSTRUCTION(CLOSE_UPVALUE, simple_instruction)
         INSTRUCTION(GET_LOCAL, _byte_instruction)
         INSTRUCTION(SET_LOCAL, _byte_instruction)
         INSTRUCTION(CALL, _byte_instruction)
+        INSTRUCTION(GET_UPVALUE, _byte_instruction)
+        INSTRUCTION(SET_UPVALUE, _byte_instruction)
         INSTRUCTION_1(JUMP_IF_FALSE, _jump_instruction, 1)
         INSTRUCTION_1(JUMP_IF_TRUE, _jump_instruction, 1)
         INSTRUCTION_1(JUMP, _jump_instruction, 1)
         INSTRUCTION_1(LOOP, _jump_instruction, -1)
+    case OpCode::CLOSURE: {
+        offset++;
+        auto constant = _code.at(offset++);
+
+        const auto* function = _constants.at(constant).as_object()->as<FunctionObject>();
+        std::println("{:16} {:4d} {}", "CLOSURE", constant, function->to_string());
+
+        for(int i = 0; i < function->upvalue_count; i++)
+        {
+            auto is_local = static_cast<bool>(_code.at(offset++));
+            int index = _code.at(offset++);
+            std::println("{:04d}      |                      {} {}",
+                         offset - 2,
+                         is_local ? "local" : "upvalue",
+                         index);
+        }
+
+        return offset;
+    }
 #undef INSTRUCTION_1
 #undef INSTRUCTION
     }

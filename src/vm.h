@@ -60,9 +60,14 @@ public:
         return _data[_top];
     }
 
-    void pop(size_t n)
+    void pop_by(size_t n)
     {
         _top -= n;
+    }
+
+    void pop_to(size_t n)
+    {
+        _top = n;
     }
 
     T* top_addr()
@@ -95,10 +100,16 @@ class VM
 {
     struct CallFrame
     {
-        const FunctionObject* function;
+        const ClosureObject* closure;
         const uint8_t* ip;
         int offset;
     };
+
+    absl::flat_hash_map<std::string_view, Value> _globals;
+    UpValueObject* _open_upvalues = nullptr;
+
+    UpValueObject* _capture_upvalue(Value* local);
+    void _close_upvalues(Value*);
 
     static constexpr int MAX_FRAMES = 64;
     std::array<CallFrame, MAX_FRAMES> _frames;
@@ -118,27 +129,27 @@ class VM
         for(int i = _frame_count - 1; i >= 0; i--)
         {
             auto* frame = &_frames[i];
-            auto* function = frame->function;
-            size_t instruction = frame->ip - function->chunk.get_code() - 1;
+            const auto& function = frame->closure->function;
+            size_t instruction = frame->ip - function.chunk.get_code() - 1;
 
-            int line = function->chunk.get_line(instruction);
+            int line = function.chunk.get_line(instruction);
 
             std::print(stderr, "[line {}] in ", line);
 
-            if(function->name.empty())
+            if(function.name.empty())
             {
                 std::println(stderr, "script");
             }
             else
             {
-                std::println(stderr, "{}()", function->name);
+                std::println(stderr, "{}()", function.name);
             }
         }
     }
 
     bool _call_value(const Value& callee, int arg_count);
 
-    bool _call(const FunctionObject* callee, int arg_count);
+    bool _call(const ClosureObject* callee, int arg_count);
 
     InterpretResult _run();
 
@@ -155,14 +166,13 @@ class VM
 
     const Chunk& _current_chunk()
     {
-        return _current_frame->function->chunk;
+        return _current_frame->closure->function.chunk;
     }
 
 public:
     VM(ObjectAllocator&);
     InterpretResult interpret(FunctionObject&);
     void define_native(std::string_view name, NativeFn function);
-    absl::flat_hash_map<std::string_view, Value> _globals;
 };
 } // namespace lox
 

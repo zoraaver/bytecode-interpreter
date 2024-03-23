@@ -23,12 +23,14 @@ public:
         ChunkConstantLimitExceeded,
         JumpLimitExceeded,
         LoopLimitExceeded,
-        ReturnOutsideFunction
+        ReturnOutsideFunction,
+        UpvalueLimitExceeded
     };
 
 private:
     FunctionObject* _function = nullptr;
     ObjectAllocator& _allocator;
+    Compiler* _enclosing = nullptr;
 
     enum class FunctionType
     {
@@ -43,13 +45,25 @@ private:
         Token name;
         // -1 indicates that the variable is not initialized
         int depth = -1;
+        bool is_captured = false;
+    };
+
+    struct UpValue
+    {
+        uint8_t index;
+        bool is_local;
     };
 
     // To keep track of scopes
     int _scope_depth = 0;
     // We reserve the first local slot for internal VM use.
     int _local_count = 1;
-    Local _locals[UINT8_MAX + 1] = {{.name = Token{}, .depth = 0}};
+
+    static constexpr int MAX_LOCALS = UINT8_MAX + 1;
+    static constexpr int MAX_UPVALUES = UINT8_MAX + 1;
+
+    Local _locals[MAX_LOCALS] = {{.name = Token{}, .depth = 0}};
+    UpValue _upvalues[MAX_UPVALUES];
 
     Chunk& _current_chunk()
     {
@@ -63,6 +77,8 @@ private:
     }
 
     int _resolve_local(const Token& name);
+    int _resolve_upvalue(const Token& name);
+    int _add_upvalue(const Token& tok, uint8_t index, bool is_local);
 
     void _end_scope(const Token&);
     void _emit_byte(uint8_t byte, int line);
@@ -120,7 +136,7 @@ private:
     std::string _get_error_message(const Exception&) const;
 
 public:
-    Compiler(ObjectAllocator&, FunctionType = FunctionType::SCRIPT);
+    Compiler(ObjectAllocator&, FunctionType = FunctionType::SCRIPT, Compiler* = nullptr);
 
     std::expected<FunctionObject, Error> compile(const std::vector<ASTNodePtr>& declarations);
 

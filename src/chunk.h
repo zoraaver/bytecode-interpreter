@@ -37,7 +37,11 @@ enum class OpCode : uint8_t
     JUMP_IF_TRUE,
     JUMP,
     LOOP,
-    CALL
+    CALL,
+    CLOSURE,
+    GET_UPVALUE,
+    SET_UPVALUE,
+    CLOSE_UPVALUE
 };
 
 class Chunk

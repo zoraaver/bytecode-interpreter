@@ -44,8 +44,11 @@ VM::VM(ObjectAllocator& allocator)
 InterpretResult VM::interpret(FunctionObject& function)
 {
     _stack.push(Value{&function});
+    _stack.pop();
 
-    _call(&function, 0);
+    _stack.push(Value{new(_allocator) ClosureObject{function, {}}});
+
+    _call_value(_stack.top(), 0);
 
     return _run();
 }
@@ -54,16 +57,16 @@ bool VM::_call_value(const Value& callee, int arg_count)
 {
     if(callee.is_object())
     {
-        if(auto func = callee.as_object()->as<FunctionObject>())
+        if(auto closure = callee.as_object()->as<ClosureObject>())
         {
-            return _call(func, arg_count);
+            return _call(closure, arg_count);
         }
         else if(auto native_func = callee.as_object()->as<NativeFunctionObject>())
         {
             auto ret =
                 native_func->native_fn({_stack.top_addr() - arg_count + 1, _stack.top_addr() + 1});
 
-            _stack.pop(arg_count + 1);
+            _stack.pop_by(arg_count + 1);
             _stack.push(ret);
 
             return true;
@@ -75,11 +78,11 @@ bool VM::_call_value(const Value& callee, int arg_count)
     return false;
 }
 
-bool VM::_call(const FunctionObject* callee, int arg_count)
+bool VM::_call(const ClosureObject* closure, int arg_count)
 {
-    if(arg_count != callee->arity)
+    if(arg_count != closure->function.arity)
     {
-        _runtime_error("Expected {} arguments but got {}.", callee->arity, arg_count);
+        _runtime_error("Expected {} arguments but got {}.", closure->function.arity, arg_count);
         return false;
     }
 
@@ -91,8 +94,8 @@ bool VM::_call(const FunctionObject* callee, int arg_count)
 
     _current_frame = &_frames[_frame_count++];
 
-    _current_frame->function = callee;
-    _current_frame->ip = callee->chunk.get_code();
+    _current_frame->closure = closure;
+    _current_frame->ip = closure->function.chunk.get_code();
     _current_frame->offset = static_cast<int>(_stack.size() - arg_count - 1);
 
     return true;
@@ -107,6 +110,48 @@ void VM::define_native(std::string_view name, NativeFn fn)
 
     _stack.pop();
     _stack.pop();
+}
+
+UpValueObject* VM::_capture_upvalue(Value* local)
+{
+    UpValueObject* prev_upvalue = NULL;
+    UpValueObject* upvalue = _open_upvalues;
+
+    while(upvalue != NULL && &upvalue->location > &local)
+    {
+        prev_upvalue = upvalue;
+        upvalue = upvalue->next;
+    }
+
+    if(upvalue != NULL && upvalue->location == local)
+    {
+        return upvalue;
+    }
+
+    auto new_upvalue = new(_allocator) UpValueObject{local};
+    new_upvalue->next = upvalue;
+
+    if(prev_upvalue == NULL)
+    {
+        _open_upvalues = new_upvalue;
+    }
+    else
+    {
+        prev_upvalue->next = new_upvalue;
+    }
+
+    return new_upvalue;
+}
+
+void VM::_close_upvalues(Value* last)
+{
+    while(_open_upvalues != nullptr && _open_upvalues->location >= last)
+    {
+        auto* upvalue = _open_upvalues;
+        upvalue->closed = *upvalue->location;
+        upvalue->location = &upvalue->closed;
+        _open_upvalues = upvalue->next;
+    }
 }
 
 InterpretResult VM::_run()
@@ -148,8 +193,10 @@ InterpretResult VM::_run()
 
             _current_frame = &_frames[_frame_count - 1];
 
-            // Pop off all the call frame parameters
-            _stack.pop(previous_frame->function->arity + 1);
+            // Reset the stack to where it was before the function call
+            _stack.pop_to(previous_frame->offset);
+            // Close over any stack values from the returning function
+            _close_upvalues(_stack.top_addr());
 
             // Push the return value
             _stack.push(ret);
@@ -303,6 +350,46 @@ InterpretResult VM::_run()
             {
                 return InterpretResult::RUNTIME_ERROR;
             }
+            break;
+        }
+        case OpCode::CLOSURE: {
+            const auto* function =
+                _current_chunk().get_constant(_read_byte()).as_object()->as<FunctionObject>();
+
+            std::vector<UpValueObject*> upvalues;
+            upvalues.reserve(function->upvalue_count);
+
+            for(int i = 0; i < function->upvalue_count; ++i)
+            {
+                auto is_local = static_cast<bool>(_read_byte());
+                auto index = _read_byte();
+
+                if(is_local)
+                {
+                    upvalues.push_back(_capture_upvalue(&_stack[index + _current_frame->offset]));
+                }
+                else
+                {
+                    upvalues.push_back(_current_frame->closure->upvalues[i]);
+                }
+            }
+
+            _stack.push(new(_allocator) ClosureObject{*function, std::move(upvalues)});
+            break;
+        }
+        case OpCode::GET_UPVALUE: {
+            auto slot = _read_byte();
+            _stack.push(*_current_frame->closure->upvalues[slot]->location);
+            break;
+        }
+        case OpCode::SET_UPVALUE: {
+            auto slot = _read_byte();
+            *_current_frame->closure->upvalues[slot]->location = _stack.top();
+            break;
+        }
+        case OpCode::CLOSE_UPVALUE: {
+            _close_upvalues(_stack.top_addr());
+            _stack.pop();
             break;
         }
         }

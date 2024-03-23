@@ -2,7 +2,7 @@
 #define LOX_OBJECT_H
 
 #include <cstdint>
-#include <functional>
+#include <format>
 #include <span>
 #include <string>
 #include <string_view>
@@ -61,10 +61,12 @@ struct FunctionObject : public Object
 {
     FunctionObject(std::string name, int arity)
         : name(std::move(name))
-        , arity(arity){};
+        , arity(arity)
+    { }
 
     const uint8_t arity;
     const std::string name;
+    int upvalue_count = 0;
     Chunk chunk;
 
     std::string to_string() const override
@@ -78,6 +80,43 @@ struct FunctionObject : public Object
     }
 
     virtual ~FunctionObject();
+};
+
+struct UpValueObject : public Object
+{
+    UpValueObject(Value* location)
+        : location(location)
+        , closed()
+    { }
+
+    Value* location = nullptr;
+    UpValueObject* next = nullptr;
+    Value closed;
+
+    std::string to_string() const override
+    {
+        return "<upvalue>";
+    }
+
+    virtual ~UpValueObject(){};
+};
+
+struct ClosureObject : public Object
+{
+    ClosureObject(const FunctionObject& function, std::vector<UpValueObject*> upvalues)
+        : function(function)
+        , upvalues(std::move(upvalues))
+    { }
+
+    const FunctionObject& function;
+    const std::vector<UpValueObject*> upvalues;
+
+    std::string to_string() const override
+    {
+        return function.to_string();
+    }
+
+    virtual ~ClosureObject(){};
 };
 
 using NativeFn = Value (*)(std::span<Value>);

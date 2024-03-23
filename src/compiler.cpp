@@ -18,9 +18,10 @@
 namespace lox
 {
 
-Compiler::Compiler(ObjectAllocator& allocator, FunctionType type)
+Compiler::Compiler(ObjectAllocator& allocator, FunctionType type, Compiler* enclosing)
     : _allocator(allocator)
     , _type(type)
+    , _enclosing(enclosing)
 { }
 
 std::expected<FunctionObject, Compiler::Error>
@@ -79,6 +80,9 @@ std::string Compiler::_get_error_message(const Exception& ex) const
     case Error::LocalVariableLimitExceeded:
         return std::format(
             "Local variable limit exceeded: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
+    case Error::UpvalueLimitExceeded:
+        return std::format(
+            "Upvalue variable limit exceeded: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
     case Error::RedefinedVariableInSameScope:
         return std::format(
             "Redefined variable in same scope: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
@@ -253,15 +257,20 @@ void Compiler::operator()(const ReturnStmtNode& node)
 
 void Compiler::operator()(const FunDeclNode& node)
 {
-    Compiler func_compiler{_allocator, FunctionType::FUNCTION};
+    Compiler func_compiler{_allocator, FunctionType::FUNCTION, this};
 
     auto body = std::get_if<BlockStmtNode>(node.body.get());
     assert(body && "Function body is not a block statement");
 
     auto func = func_compiler._compile_function(node.name.lexeme, node.params, body->statements);
 
-    _emit_bytes(
-        static_cast<uint8_t>(OpCode::CONSTANT), _make_constant(Value{func}), node.name.line);
+    _emit_bytes(static_cast<uint8_t>(OpCode::CLOSURE), _make_constant(Value{func}), node.name.line);
+
+    for(int i = 0; i < func->upvalue_count; ++i)
+    {
+        _emit_byte(func_compiler._upvalues[i].is_local ? 1 : 0, node.name.line);
+        _emit_byte(func_compiler._upvalues[i].index, node.name.line);
+    }
 
     _define_variable(node.name);
 }
@@ -331,7 +340,16 @@ void Compiler::_end_scope(const Token& brace)
 
     while(_local_count > 0 && _locals[_local_count - 1].depth > _scope_depth)
     {
-        _emit_bytecode(OpCode::POP, brace.line);
+        OpCode op;
+        if(_locals[_local_count - 1].is_captured)
+        {
+            op = OpCode::CLOSE_UPVALUE;
+        }
+        else
+        {
+            op = OpCode::POP;
+        }
+        _emit_bytecode(op, brace.line);
         --_local_count;
     }
 }
@@ -363,7 +381,7 @@ void Compiler::_define_variable(const Token& identifier)
         }
     }
 
-    if(_local_count == (sizeof(_locals) / sizeof(Local)))
+    if(_local_count == MAX_LOCALS)
     {
         throw Exception{identifier, Error::LocalVariableLimitExceeded};
     }
@@ -388,9 +406,17 @@ void Compiler::operator()(const VarDeclNode& node)
 void Compiler::operator()(const VariableExprNode& node)
 {
     auto arg = _resolve_local(node.var);
-    OpCode op = OpCode::GET_LOCAL;
+    OpCode op;
 
-    if(arg == -1)
+    if(arg != -1)
+    {
+        op = OpCode::GET_LOCAL;
+    }
+    else if((arg = _resolve_upvalue(node.var)) != -1)
+    {
+        op = OpCode::GET_UPVALUE;
+    }
+    else
     {
         arg = _make_constant(Value{_allocator.allocate_string(node.var.lexeme)});
         op = OpCode::GET_GLOBAL;
@@ -404,9 +430,17 @@ void Compiler::operator()(const AssignmentExprNode& node)
     std::visit(*this, *node.value);
 
     auto arg = _resolve_local(node.target.var);
-    OpCode op = OpCode::SET_LOCAL;
+    OpCode op;
 
-    if(arg == -1)
+    if(arg != -1)
+    {
+        op = OpCode::SET_LOCAL;
+    }
+    else if((arg = _resolve_upvalue(node.target.var)) != -1)
+    {
+        op = OpCode::SET_UPVALUE;
+    }
+    else
     {
         arg = _make_constant(Value{_allocator.allocate_string(node.target.var.lexeme)});
         op = OpCode::SET_GLOBAL;
@@ -428,6 +462,52 @@ int Compiler::_resolve_local(const Token& name)
     }
 
     return -1;
+}
+
+int Compiler::_resolve_upvalue(const Token& name)
+{
+    if(_enclosing == nullptr)
+    {
+        return -1;
+    }
+
+    auto local = _enclosing->_resolve_local(name);
+
+    if(local != -1)
+    {
+        _enclosing->_locals[local].is_captured = true;
+        return _add_upvalue(name, local, true);
+    }
+
+    auto upvalue = _enclosing->_resolve_upvalue(name);
+
+    if(upvalue != -1)
+    {
+        return _add_upvalue(name, upvalue, false);
+    }
+
+    return -1;
+}
+
+int Compiler::_add_upvalue(const Token& tok, uint8_t index, bool is_local)
+{
+    auto upvalue_count = _function->upvalue_count;
+
+    for(auto i = 0; i < upvalue_count; i++)
+    {
+        if(_upvalues[i].index == index && _upvalues[i].is_local == is_local)
+        {
+            return i;
+        }
+    }
+
+    if(upvalue_count > MAX_UPVALUES)
+    {
+        throw Exception{tok, Error::UpvalueLimitExceeded};
+    }
+
+    _upvalues[upvalue_count] = {.index = index, .is_local = is_local};
+    return _function->upvalue_count++;
 }
 
 void Compiler::operator()(const ValueNode& node)
