@@ -9,8 +9,9 @@ Object* ObjectAllocator::allocate(size_t size)
 {
     auto* ptr = static_cast<Object*>(::operator new(size));
 
+    _total_usage += size;
 #ifdef DEBUG_TRACE_EXECUTION
-    std::println("Object allocated: {} bytes", size);
+    std::println("Object allocated: {} bytes, total: {}", size, _total_usage);
 #endif // DEBUG_TRACE_EXECUTION
 
     _objects.push_back(ptr);

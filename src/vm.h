@@ -106,9 +106,9 @@ class VM
     };
 
     absl::flat_hash_map<std::string_view, Value> _globals;
-    UpValueObject* _open_upvalues = nullptr;
+    std::vector<UpValueObject*> _open_upvalues;
 
-    UpValueObject* _capture_upvalue(Value* local);
+    UpValueObject* _capture_upvalue(Value*);
     void _close_upvalues(Value*);
 
     static constexpr int MAX_FRAMES = 64;

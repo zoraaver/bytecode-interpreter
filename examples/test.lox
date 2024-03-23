@@ -1,25 +1,15 @@
 // this is a comment
 // !(5 - 4 > 3 * 2 == !nil)
-fun outer() {
-    var x = 10;
-  fun object(type) {
-    fun set(arg) {
-        x = arg;
+fun outer(x, y) {
+    fun allocate() {
+        return x + y;
     }
 
-    fun get() {
-        return x;
-    }
-
-    if (type == "set")
-        return set;
-    else
-        return get;
-  }
-
-  return object;
+    return allocate;
 }
 
-var object = outer();
-object("set")(5);
-print(object("get")());
+for (var i = 0; i < 1000; i = i + 1) {
+    var x = outer(i, i + 1);
+
+    print(x());
+}

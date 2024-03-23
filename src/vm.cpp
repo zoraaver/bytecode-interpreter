@@ -1,10 +1,12 @@
 #include "vm.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <ctime>
 #include <print>
 #include <span>
 #include <string_view>
+#include <vector>
 
 #include "chunk.h"
 #include "object.h"
@@ -39,6 +41,8 @@ VM::VM(ObjectAllocator& allocator)
 {
     define_native("clock", &clock_native);
     define_native("print", &print_native);
+
+    _open_upvalues.reserve(256);
 }
 
 InterpretResult VM::interpret(FunctionObject& function)
@@ -114,44 +118,31 @@ void VM::define_native(std::string_view name, NativeFn fn)
 
 UpValueObject* VM::_capture_upvalue(Value* local)
 {
-    UpValueObject* prev_upvalue = NULL;
-    UpValueObject* upvalue = _open_upvalues;
+    auto ret = std::ranges::find_if(
+        _open_upvalues, [local](UpValueObject* upvalue) { return upvalue->location == local; });
 
-    while(upvalue != NULL && &upvalue->location > &local)
+    if(ret != _open_upvalues.end())
     {
-        prev_upvalue = upvalue;
-        upvalue = upvalue->next;
+        return *ret;
     }
+    _open_upvalues.push_back(new(_allocator) UpValueObject{local});
 
-    if(upvalue != NULL && upvalue->location == local)
-    {
-        return upvalue;
-    }
-
-    auto new_upvalue = new(_allocator) UpValueObject{local};
-    new_upvalue->next = upvalue;
-
-    if(prev_upvalue == NULL)
-    {
-        _open_upvalues = new_upvalue;
-    }
-    else
-    {
-        prev_upvalue->next = new_upvalue;
-    }
-
-    return new_upvalue;
+    return _open_upvalues.back();
 }
 
 void VM::_close_upvalues(Value* last)
 {
-    while(_open_upvalues != nullptr && _open_upvalues->location >= last)
-    {
-        auto* upvalue = _open_upvalues;
+    std::erase_if(_open_upvalues, [last](UpValueObject* upvalue) {
+        if(upvalue->location < last)
+        {
+            return false;
+        }
+
         upvalue->closed = *upvalue->location;
         upvalue->location = &upvalue->closed;
-        _open_upvalues = upvalue->next;
-    }
+
+        return true;
+    });
 }
 
 InterpretResult VM::_run()

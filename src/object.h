@@ -90,7 +90,6 @@ struct UpValueObject : public Object
     { }
 
     Value* location = nullptr;
-    UpValueObject* next = nullptr;
     Value closed;
 
     std::string to_string() const override
@@ -142,6 +141,7 @@ class ObjectAllocator
 {
     std::vector<Object*> _objects;
     absl::flat_hash_map<std::string_view, StringObject*> _interned_strings;
+    size_t _total_usage = 0;
 
 public:
     Object* allocate(size_t size);
