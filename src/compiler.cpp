@@ -24,11 +24,10 @@ Compiler::Compiler(ObjectAllocator& allocator, FunctionType type, Compiler* encl
     , _enclosing(enclosing)
 { }
 
-std::expected<FunctionObject, Compiler::Error>
+std::expected<FunctionObject*, Compiler::Error>
 Compiler::compile(const std::vector<ASTNodePtr>& declarations)
 {
-    FunctionObject func{"", 0};
-    _function = &func;
+    _function = _allocator.allocate<FunctionObject>(false, "", 0);
 
     for(auto& node : declarations)
     {
@@ -46,15 +45,15 @@ Compiler::compile(const std::vector<ASTNodePtr>& declarations)
 
     _emit_return(0);
 
-    return func;
+    return _function;
 }
 
 FunctionObject* Compiler::_compile_function(std::string_view name,
                                             const std::vector<Token>& params,
                                             const std::vector<ASTNodePtr>& declarations)
 {
-    _function =
-        new(_allocator) FunctionObject{std::string{name}, static_cast<uint8_t>(params.size())};
+    _function = _allocator.allocate<FunctionObject>(
+        false, std::string{name}, static_cast<uint8_t>(params.size()));
 
     _begin_scope();
 
@@ -358,7 +357,7 @@ void Compiler::_define_variable(const Token& identifier)
 {
     if(_scope_depth == 0)
     {
-        auto index = _make_constant(Value{_allocator.allocate_string(identifier.lexeme)});
+        auto index = _make_constant(Value{_allocator.allocate_string(identifier.lexeme, false)});
         _emit_bytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), index, identifier.line);
 
         return;
@@ -418,7 +417,7 @@ void Compiler::operator()(const VariableExprNode& node)
     }
     else
     {
-        arg = _make_constant(Value{_allocator.allocate_string(node.var.lexeme)});
+        arg = _make_constant(Value{_allocator.allocate_string(node.var.lexeme, false)});
         op = OpCode::GET_GLOBAL;
     }
 
@@ -442,7 +441,7 @@ void Compiler::operator()(const AssignmentExprNode& node)
     }
     else
     {
-        arg = _make_constant(Value{_allocator.allocate_string(node.target.var.lexeme)});
+        arg = _make_constant(Value{_allocator.allocate_string(node.target.var.lexeme, false)});
         op = OpCode::SET_GLOBAL;
     }
 

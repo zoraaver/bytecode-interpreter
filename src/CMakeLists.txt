@@ -13,7 +13,16 @@ target_compile_features(interpreter_lib PUBLIC cxx_std_23)
 
 target_include_directories(interpreter_lib PUBLIC .)
 
-target_compile_definitions(interpreter_lib PRIVATE "$<$<CONFIG:Debug>:DEBUG_TRACE_EXECUTION>")
+set(DEBUG_DEFINITIONS DEBUG_TRACE_EXECUTION)
+
+if (DEBUG_TRACE_GC)
+  list(APPEND DEBUG_DEFINITIONS
+      DEBUG_STRESS_GC
+      DEBUG_LOG_GC
+   )
+endif()
+
+target_compile_definitions(interpreter_lib PRIVATE "$<$<CONFIG:Debug>:${DEBUG_DEFINITIONS}>")
 
 include(FetchContent)
 

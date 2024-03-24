@@ -1,7 +1,9 @@
 #ifndef LOX_VALUE_H
 #define LOX_VALUE_H
 
+#include "common.h"
 #include <print>
+#include <span>
 #include <string>
 namespace lox
 {
@@ -80,10 +82,12 @@ public:
         return as.number;
     }
 
-    const Object* as_object() const
+    Object* as_object()
     {
         return as.obj;
     }
+
+    void mark(GreyList<Object*>&);
 
     void negate()
     {
@@ -136,6 +140,8 @@ public:
 
     std::string to_string() const;
 };
+
+using NativeFn = Value (*)(std::span<Value>);
 
 } // namespace lox
 

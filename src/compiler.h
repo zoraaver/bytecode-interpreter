@@ -138,7 +138,7 @@ private:
 public:
     Compiler(ObjectAllocator&, FunctionType = FunctionType::SCRIPT, Compiler* = nullptr);
 
-    std::expected<FunctionObject, Error> compile(const std::vector<ASTNodePtr>& declarations);
+    std::expected<FunctionObject*, Error> compile(const std::vector<ASTNodePtr>& declarations);
 
     void operator()(const BinExprNode&);
     void operator()(const ValueNode&);

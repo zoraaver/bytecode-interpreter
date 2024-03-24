@@ -47,7 +47,7 @@ int Chunk::_jump_instruction(std::string_view name, int sign, int offset) const
     return offset + 3;
 }
 
-void Chunk::disassemble(std::string_view name) const
+void Chunk::disassemble(std::string_view name)
 {
     std::println("== {} ==", name);
 
@@ -68,7 +68,7 @@ void Chunk::write(uint8_t byte, int line)
     _lines.push_back(line);
 }
 
-int Chunk::_disassemble_instruction(int offset) const
+int Chunk::_disassemble_instruction(int offset)
 {
     std::print("{:04d} ", offset);
     if(offset > 0 && _lines.at(offset) == _lines[offset - 1])
@@ -153,7 +153,7 @@ const uint8_t* Chunk::get_code() const
     return _code.data();
 }
 
-void Chunk::disassemble_instruction(const uint8_t* instruction) const
+void Chunk::disassemble_instruction(const uint8_t* instruction)
 {
     _disassemble_instruction(instruction - _code.data());
 }

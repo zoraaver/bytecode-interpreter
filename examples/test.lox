@@ -1,15 +1,17 @@
 // this is a comment
-// !(5 - 4 > 3 * 2 == !nil)
-fun outer(x, y) {
-    fun allocate() {
-        return x + y;
+
+fun outer(x, y, z) {
+    fun sum() {
+        return x + y + z;
     }
 
-    return allocate;
+    return sum;
 }
 
 for (var i = 0; i < 1000; i = i + 1) {
-    var x = outer(i, i + 1);
+    var x = outer(i, i * 2, i * 3);
+    var z = "this should " + "be collected eventually";
 
+    print(z);
     print(x());
 }

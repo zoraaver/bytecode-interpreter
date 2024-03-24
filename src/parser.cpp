@@ -124,7 +124,7 @@ ASTNodePtr Parser::_parse_number()
 ASTNodePtr Parser::_parse_string()
 {
     Value value{
-        _allocator.allocate_string(_previous.lexeme.substr(1, _previous.lexeme.size() - 2))};
+        _allocator.allocate_string(_previous.lexeme.substr(1, _previous.lexeme.size() - 2), false)};
 
     return std::make_unique<ASTNode>(ASTNode{ValueNode{_previous, value}});
 }

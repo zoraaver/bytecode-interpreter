@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "chunk.h"
+#include "common.h"
 #include "object.h"
+#include "stack.h"
 #include "value.h"
 
 namespace lox
@@ -36,8 +38,16 @@ Value print_native(std::span<Value> args)
 
 } // namespace
 
-VM::VM(ObjectAllocator& allocator)
+VM::VM(ObjectAllocator& allocator,
+       FixedStack<Value>& stack,
+       HashMap<Value>& globals,
+       CallStack& callstack,
+       std::vector<UpValueObject*>& open_upvalues)
     : _allocator(allocator)
+    , _stack(stack)
+    , _globals(globals)
+    , _callstack(callstack)
+    , _open_upvalues(open_upvalues)
 {
     define_native("clock", &clock_native);
     define_native("print", &print_native);
@@ -47,17 +57,15 @@ VM::VM(ObjectAllocator& allocator)
 
 InterpretResult VM::interpret(FunctionObject& function)
 {
-    _stack.push(Value{&function});
-    _stack.pop();
-
-    _stack.push(Value{new(_allocator) ClosureObject{function, {}}});
+    _stack.push(
+        Value{_allocator.allocate<ClosureObject>(false, function, std::vector<UpValueObject*>{})});
 
     _call_value(_stack.top(), 0);
 
     return _run();
 }
 
-bool VM::_call_value(const Value& callee, int arg_count)
+bool VM::_call_value(Value& callee, int arg_count)
 {
     if(callee.is_object())
     {
@@ -82,7 +90,7 @@ bool VM::_call_value(const Value& callee, int arg_count)
     return false;
 }
 
-bool VM::_call(const ClosureObject* closure, int arg_count)
+bool VM::_call(ClosureObject* closure, int arg_count)
 {
     if(arg_count != closure->function.arity)
     {
@@ -90,30 +98,31 @@ bool VM::_call(const ClosureObject* closure, int arg_count)
         return false;
     }
 
-    if(_frame_count == MAX_FRAMES)
+    if(_callstack.size() == MAX_FRAMES)
     {
         _runtime_error("Stack overflow.");
         return false;
     }
 
-    _current_frame = &_frames[_frame_count++];
+    _callstack.push({
+        .closure = closure,
+        .ip = closure->function.chunk.get_code(),
+        .offset = static_cast<int>(_stack.size() - arg_count - 1),
+    });
 
-    _current_frame->closure = closure;
-    _current_frame->ip = closure->function.chunk.get_code();
-    _current_frame->offset = static_cast<int>(_stack.size() - arg_count - 1);
+    _current_frame = _callstack.top_addr();
 
     return true;
 }
 
+Chunk& VM::_current_chunk()
+{
+    return _current_frame->closure->function.chunk;
+}
+
 void VM::define_native(std::string_view name, NativeFn fn)
 {
-    _stack.push(Value{_allocator.allocate_string(name)});
-    _stack.push(Value{new(_allocator) NativeFunctionObject{fn}});
-
-    _globals[name] = _stack.top();
-
-    _stack.pop();
-    _stack.pop();
+    _globals[name] = Value{_allocator.allocate<NativeFunctionObject>(false, fn)};
 }
 
 UpValueObject* VM::_capture_upvalue(Value* local)
@@ -125,9 +134,35 @@ UpValueObject* VM::_capture_upvalue(Value* local)
     {
         return *ret;
     }
-    _open_upvalues.push_back(new(_allocator) UpValueObject{local});
+    _open_upvalues.push_back(_allocator.allocate<UpValueObject>(true, local));
 
     return _open_upvalues.back();
+}
+
+template <class... Args>
+constexpr void VM::_runtime_error(std::string_view format, Args&&... args)
+{
+    std::cerr << std::vformat(format, std::make_format_args(args...)) << '\n';
+
+    for(auto i = _callstack.size() - 1; i >= 0; i--)
+    {
+        const auto& frame = _callstack[i];
+        const auto& function = frame.closure->function;
+        size_t instruction = frame.ip - function.chunk.get_code() - 1;
+
+        int line = function.chunk.get_line(instruction);
+
+        std::print(stderr, "[line {}] in ", line);
+
+        if(function.name.empty())
+        {
+            std::println(stderr, "script");
+        }
+        else
+        {
+            std::println(stderr, "{}()", function.name);
+        }
+    }
 }
 
 void VM::_close_upvalues(Value* last)
@@ -171,21 +206,19 @@ InterpretResult VM::_run()
             auto ret = _stack.pop();
 
             // Returning from top level script function
-            if(_frame_count == 1)
+            if(_callstack.size() == 1)
             {
-                --_frame_count;
+                _callstack.pop();
                 _stack.pop();
                 return InterpretResult::OK;
             }
 
-            auto previous_frame = &_frames[_frame_count - 1];
+            auto& previous_frame = _callstack.pop();
 
-            --_frame_count;
-
-            _current_frame = &_frames[_frame_count - 1];
+            _current_frame = _callstack.top_addr();
 
             // Reset the stack to where it was before the function call
-            _stack.pop_to(previous_frame->offset);
+            _stack.pop_to(previous_frame.offset);
             // Close over any stack values from the returning function
             _close_upvalues(_stack.top_addr());
 
@@ -208,11 +241,12 @@ InterpretResult VM::_run()
             _stack.top().negate();
             break;
         case OpCode::ADD: {
-            auto b = _stack.pop();
-            auto a = _stack.pop();
+            auto& b = _stack.top();
+            auto& a = _stack[_stack.size() - 2];
 
             if(a.is_number() && b.is_number())
             {
+                _stack.pop_by(2);
                 _stack.push(Value{a.as_number() + b.as_number()});
                 break;
             }
@@ -223,6 +257,7 @@ InterpretResult VM::_run()
 
                 if(a_str && b_str)
                 {
+                    _stack.pop_by(2);
                     _stack.push(Value{_allocator.allocate_string(a_str->value() + b_str->value())});
                     break;
                 }
@@ -344,7 +379,7 @@ InterpretResult VM::_run()
             break;
         }
         case OpCode::CLOSURE: {
-            const auto* function =
+            auto* function =
                 _current_chunk().get_constant(_read_byte()).as_object()->as<FunctionObject>();
 
             std::vector<UpValueObject*> upvalues;
@@ -365,7 +400,7 @@ InterpretResult VM::_run()
                 }
             }
 
-            _stack.push(new(_allocator) ClosureObject{*function, std::move(upvalues)});
+            _stack.push(_allocator.allocate<ClosureObject>(true, *function, std::move(upvalues)));
             break;
         }
         case OpCode::GET_UPVALUE: {

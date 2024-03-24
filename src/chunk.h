@@ -50,19 +50,34 @@ class Chunk
     std::vector<Value> _constants;
     std::vector<int> _lines;
 
-    int _disassemble_instruction(int offset) const;
+    int _disassemble_instruction(int offset);
     int _constant_instruction(std::string_view name, int offset) const;
     int _byte_instruction(std::string_view name, int offset) const;
     int _jump_instruction(std::string_view name, int sign, int offset) const;
 
 public:
-    void disassemble(std::string_view name) const;
+    void disassemble(std::string_view name);
     void write(OpCode, int line);
     void write(uint8_t byte, int line);
     int add_constant(Value);
     const uint8_t* get_code() const;
 
+    std::vector<Value>& get_constants()
+    {
+        return _constants;
+    }
+
+    const std::vector<Value>& get_constants() const
+    {
+        return _constants;
+    }
+
     const Value& get_constant(size_t index) const
+    {
+        return _constants[index];
+    };
+
+    Value& get_constant(size_t index)
     {
         return _constants[index];
     };
@@ -87,7 +102,7 @@ public:
         return _code[index];
     }
 
-    void disassemble_instruction(const uint8_t*) const;
+    void disassemble_instruction(const uint8_t*);
 };
 
 } // namespace lox

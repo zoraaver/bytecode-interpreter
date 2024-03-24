@@ -3,33 +3,63 @@
 
 #include <cstdint>
 #include <format>
-#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include <absl/container/flat_hash_map.h>
-
 #include "chunk.h"
+#include "common.h"
+#include "stack.h"
+#include "value.h"
 
 namespace lox
 {
 
 class ObjectAllocator;
-class Object
-{
-public:
-    template <typename T>
-    const T* as() const
-    {
-        return dynamic_cast<const T*>(this);
+
+#define ADD_SIZE_METHOD(type)                                                                      \
+    constexpr size_t size() const override                                                         \
+    {                                                                                              \
+        return sizeof(type);                                                                       \
     }
 
-    void* operator new(size_t size, ObjectAllocator&);
-    void* operator new(size_t size) = delete;
+class Object
+{
+    bool _is_marked = false;
 
+public:
+    Object(const Object&) = delete;
+    Object(Object&&) = delete;
+
+    Object& operator=(const Object&) = delete;
+    Object& operator=(Object&&) = delete;
+
+    Object() = default;
+
+    template <typename T>
+    T* as()
+    {
+        return dynamic_cast<T*>(this);
+    }
+
+    void mark(GreyList<Object*>&);
+    virtual constexpr size_t size() const = 0;
+
+    // Returns true if the object was previously marked.
+    bool unmark()
+    {
+        auto ret = _is_marked;
+        _is_marked = false;
+        return ret;
+    }
+
+    bool is_marked() const
+    {
+        return _is_marked;
+    }
+
+    virtual void blacken(GreyList<Object*>&) { }
     virtual std::string to_string() const = 0;
-
     virtual ~Object();
 };
 
@@ -43,6 +73,8 @@ public:
 
     StringObject(std::string_view value)
         : _value(value){};
+
+    ADD_SIZE_METHOD(StringObject)
 
     const std::string& value() const
     {
@@ -64,6 +96,8 @@ struct FunctionObject : public Object
         , arity(arity)
     { }
 
+    ADD_SIZE_METHOD(FunctionObject)
+
     const uint8_t arity;
     const std::string name;
     int upvalue_count = 0;
@@ -79,6 +113,16 @@ struct FunctionObject : public Object
         return "<fn " + name + ">";
     }
 
+    void blacken(GreyList<Object*>& grey_list) override
+    {
+        Object::blacken(grey_list);
+
+        for(auto constant : chunk.get_constants())
+        {
+            constant.mark(grey_list);
+        }
+    }
+
     virtual ~FunctionObject();
 };
 
@@ -89,6 +133,8 @@ struct UpValueObject : public Object
         , closed()
     { }
 
+    ADD_SIZE_METHOD(UpValueObject)
+
     Value* location = nullptr;
     Value closed;
 
@@ -97,28 +143,44 @@ struct UpValueObject : public Object
         return "<upvalue>";
     }
 
+    void blacken(GreyList<Object*>& grey_list) override
+    {
+        Object::blacken(grey_list);
+
+        closed.mark(grey_list);
+    }
+
     virtual ~UpValueObject(){};
 };
 
 struct ClosureObject : public Object
 {
-    ClosureObject(const FunctionObject& function, std::vector<UpValueObject*> upvalues)
+    ClosureObject(FunctionObject& function, std::vector<UpValueObject*> upvalues)
         : function(function)
         , upvalues(std::move(upvalues))
     { }
 
-    const FunctionObject& function;
+    ADD_SIZE_METHOD(ClosureObject)
+
+    FunctionObject& function;
     const std::vector<UpValueObject*> upvalues;
 
     std::string to_string() const override
     {
-        return function.to_string();
+        return std::format("<closure {}>", function.name.empty() ? "script" : function.name);
+    }
+
+    void blacken(GreyList<Object*>& grey_list) override
+    {
+        function.mark(grey_list);
+        for(auto upvalue : upvalues)
+        {
+            upvalue->mark(grey_list);
+        }
     }
 
     virtual ~ClosureObject(){};
 };
-
-using NativeFn = Value (*)(std::span<Value>);
 
 struct NativeFunctionObject : public Object
 {
@@ -126,6 +188,8 @@ struct NativeFunctionObject : public Object
     NativeFunctionObject(NativeFn native_fn)
         : native_fn(native_fn)
     { }
+
+    ADD_SIZE_METHOD(NativeFunctionObject)
 
     NativeFn native_fn;
 
@@ -139,13 +203,66 @@ struct NativeFunctionObject : public Object
 
 class ObjectAllocator
 {
+    size_t _bytes_allocated = 0;
+    size_t _next_collection = 1024 * 1024;
+    static constexpr size_t _growth_factor = 2;
+
     std::vector<Object*> _objects;
-    absl::flat_hash_map<std::string_view, StringObject*> _interned_strings;
-    size_t _total_usage = 0;
+    HashMap<StringObject*> _interned_strings;
+    FixedStack<Value>& _stack;
+    HashMap<Value>& _globals;
+    CallStack& _callstack;
+    std::vector<UpValueObject*>& _open_upvalues;
+    std::stack<Object*, std::vector<Object*>> _grey_list;
+
+    void _deallocate(Object* object);
+    void _mark_roots();
+    void _trace_references();
+    void _sweep();
+    void _remove_white_strings();
 
 public:
-    Object* allocate(size_t size);
-    StringObject* allocate_string(std::string_view value);
+    ObjectAllocator(FixedStack<Value>& stack,
+                    HashMap<Value>& globals,
+                    CallStack& callstack,
+                    std::vector<UpValueObject*>& open_upvalues)
+        : _stack(stack)
+        , _globals(globals)
+        , _callstack(callstack)
+        , _open_upvalues(open_upvalues)
+    { }
+
+    void collect_garbage();
+
+    template <typename T, typename... Args>
+    T* allocate(bool collect, Args&&... args)
+    {
+        auto* ptr = ::new T{std::forward<Args>(args)...};
+        _bytes_allocated += sizeof(T);
+
+#ifdef DEBUG_LOG_GC
+        std::println("Object allocated: {} bytes", sizeof(T));
+#endif // DEBUG_LOG_GC
+
+        _objects.push_back(ptr);
+
+#ifdef DEBUG_STRESS_GC
+        if(collect)
+        {
+            collect_garbage();
+        }
+#else
+        if(_bytes_allocated > _next_collection && collect)
+        {
+            collect_garbage();
+        }
+#endif // DEBUG_STRESS_GC
+
+        return ptr;
+    }
+
+    StringObject* allocate_string(std::string_view value, bool collect = true);
+
     ~ObjectAllocator();
 };
 
