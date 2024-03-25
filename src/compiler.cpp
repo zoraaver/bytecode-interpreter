@@ -182,6 +182,15 @@ void Compiler::operator()(const GroupExprNode& node)
     std::visit(*this, *node.expr);
 }
 
+void Compiler::operator()(const PropertyExprNode& node)
+{
+    std::visit(*this, *node.instance);
+
+    auto name = _make_constant(Value{_allocator.allocate_string(node.name.lexeme)});
+
+    _emit_bytes(static_cast<uint8_t>(OpCode::GET_PROPERTY), name, node.name.line);
+}
+
 void Compiler::operator()(const ExprStmtNode& node)
 {
     std::visit(*this, *node.expr);
@@ -270,6 +279,15 @@ void Compiler::operator()(const FunDeclNode& node)
         _emit_byte(func_compiler._upvalues[i].is_local ? 1 : 0, node.name.line);
         _emit_byte(func_compiler._upvalues[i].index, node.name.line);
     }
+
+    _define_variable(node.name);
+}
+
+void Compiler::operator()(const ClassDeclNode& node)
+{
+    auto constant = _make_constant(Value{_allocator.allocate_string(node.name.lexeme)});
+
+    _emit_bytes(static_cast<uint8_t>(OpCode::CLASS), constant, node.name.line);
 
     _define_variable(node.name);
 }
@@ -426,26 +444,45 @@ void Compiler::operator()(const VariableExprNode& node)
 
 void Compiler::operator()(const AssignmentExprNode& node)
 {
+    auto* var = std::get_if<VariableExprNode>(&node.target);
+
+    if(!var)
+    {
+        auto property = std::get_if<PropertyExprNode>(&node.target);
+        assert(property && "Invalid assignment target");
+
+        // Compile the expression which produces the instance.
+        std::visit(*this, *property->instance);
+
+        // Compile the expression to be stored.
+        std::visit(*this, *node.value);
+
+        auto name = _make_constant(Value{_allocator.allocate_string(property->name.lexeme)});
+        _emit_bytes(static_cast<uint8_t>(OpCode::SET_PROPERTY), name, property->name.line);
+
+        return;
+    }
+
     std::visit(*this, *node.value);
 
-    auto arg = _resolve_local(node.target.var);
+    auto arg = _resolve_local(var->var);
     OpCode op;
 
     if(arg != -1)
     {
         op = OpCode::SET_LOCAL;
     }
-    else if((arg = _resolve_upvalue(node.target.var)) != -1)
+    else if((arg = _resolve_upvalue(var->var)) != -1)
     {
         op = OpCode::SET_UPVALUE;
     }
     else
     {
-        arg = _make_constant(Value{_allocator.allocate_string(node.target.var.lexeme, false)});
+        arg = _make_constant(Value{_allocator.allocate_string(var->var.lexeme, false)});
         op = OpCode::SET_GLOBAL;
     }
 
-    _emit_bytes(static_cast<uint8_t>(op), arg, node.target.var.line);
+    _emit_bytes(static_cast<uint8_t>(op), arg, var->var.line);
 }
 
 int Compiler::_resolve_local(const Token& name)
@@ -550,7 +587,7 @@ void Compiler::_emit_byte(uint8_t byte, int line)
     _current_chunk().write(byte, line);
 }
 
-uint8_t Compiler::_make_constant(Value value)
+uint8_t Compiler::_make_constant(const Value& value)
 {
     auto index = _current_chunk().add_constant(value);
 

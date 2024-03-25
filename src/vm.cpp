@@ -73,6 +73,12 @@ bool VM::_call_value(Value& callee, int arg_count)
         {
             return _call(closure, arg_count);
         }
+        else if(auto klass = callee.as_object()->as<ClassObject>())
+        {
+            _stack[_stack.size() - arg_count - 1] =
+                Value{_allocator.allocate<InstanceObject>(true, *klass)};
+            return true;
+        }
         else if(auto native_func = callee.as_object()->as<NativeFunctionObject>())
         {
             auto ret =
@@ -144,7 +150,7 @@ constexpr void VM::_runtime_error(std::string_view format, Args&&... args)
 {
     std::cerr << std::vformat(format, std::make_format_args(args...)) << '\n';
 
-    for(auto i = _callstack.size() - 1; i >= 0; i--)
+    for(int i = _callstack.size() - 1; i >= 0; i--)
     {
         const auto& frame = _callstack[i];
         const auto& function = frame.closure->function;
@@ -418,9 +424,57 @@ InterpretResult VM::_run()
             _stack.pop();
             break;
         }
+        case OpCode::CLASS: {
+            auto& value = _current_chunk().get_constant(_read_byte());
+            _stack.push(Value{_allocator.allocate<ClassObject>(
+                true, value.as_object()->as<StringObject>()->value())});
+            break;
         }
-    }
+        case OpCode::GET_PROPERTY: {
+            auto* instance = _stack.top().as_object()->as<InstanceObject>();
+            auto* name =
+                _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
+
+            if(!instance)
+            {
+                _runtime_error("Only instances have properties.");
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            auto it = instance->fields.find(name->value());
+
+            if(it == instance->fields.end())
+            {
+                _runtime_error("Undefined property '{}'.", name->value());
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            _stack.pop();
+            _stack.push(it->second);
+            break;
+        }
+        case OpCode::SET_PROPERTY: {
+            auto* instance = _stack[_stack.size() - 2].as_object()->as<InstanceObject>();
+
+            if(!instance)
+            {
+                _runtime_error("Only instances have fields.");
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            auto name = _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
+
+            instance->fields[name->value()] = _stack.top();
+
+            auto& val = _stack.pop();
+            // Replace the instance on the top of the stack with the assigned value.
+            _stack.top() = val;
+
+            break;
+        }
+        }
 #undef BINARY_OP
+    }
 }
 
 } // namespace lox

@@ -1,17 +1,13 @@
 // this is a comment
 
-fun outer(x, y, z) {
-    fun sum() {
-        return x + y + z;
-    }
+class Car {}
 
-    return sum;
-}
+var car = Car();
 
-for (var i = 0; i < 1000; i = i + 1) {
-    var x = outer(i, i * 2, i * 3);
-    var z = "this should " + "be collected eventually";
+car.size = 3;
+car.make = "ferrari";
 
-    print(z);
-    print(x());
-}
+print(car.size);
+print(car.make);
+
+print(car.noop);

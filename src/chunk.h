@@ -41,7 +41,10 @@ enum class OpCode : uint8_t
     CLOSURE,
     GET_UPVALUE,
     SET_UPVALUE,
-    CLOSE_UPVALUE
+    CLOSE_UPVALUE,
+    CLASS,
+    GET_PROPERTY,
+    SET_PROPERTY
 };
 
 class Chunk
@@ -59,7 +62,7 @@ public:
     void disassemble(std::string_view name);
     void write(OpCode, int line);
     void write(uint8_t byte, int line);
-    int add_constant(Value);
+    int add_constant(const Value&);
     const uint8_t* get_code() const;
 
     std::vector<Value>& get_constants()

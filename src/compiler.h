@@ -105,7 +105,7 @@ private:
 
     void _emit_loop(uint32_t loop_start, const Token&);
 
-    uint8_t _make_constant(Value value);
+    uint8_t _make_constant(const Value& value);
 
     void _compile_and_expression(const BinExprNode&);
     void _compile_or_expression(const BinExprNode&);
@@ -149,10 +149,12 @@ public:
     void operator()(const VarDeclNode&);
     void operator()(const VariableExprNode&);
     void operator()(const AssignmentExprNode&);
+    void operator()(const PropertyExprNode&);
     void operator()(const IfStmtNode&);
     void operator()(const WhileStmtNode&);
     void operator()(const ReturnStmtNode&);
     void operator()(const FunDeclNode&);
+    void operator()(const ClassDeclNode&);
     void operator()(const CallNode&);
 };
 } // namespace lox

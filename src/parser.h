@@ -27,8 +27,10 @@ struct AssignmentExprNode;
 struct IfStmtNode;
 struct WhileStmtNode;
 struct FunDeclNode;
+struct ClassDeclNode;
 struct CallNode;
 struct ReturnStmtNode;
+struct PropertyExprNode;
 
 using ASTNode = std::variant<BinExprNode,
                              ValueNode,
@@ -38,10 +40,12 @@ using ASTNode = std::variant<BinExprNode,
                              VarDeclNode,
                              VariableExprNode,
                              AssignmentExprNode,
+                             PropertyExprNode,
                              BlockStmtNode,
                              IfStmtNode,
                              WhileStmtNode,
                              FunDeclNode,
+                             ClassDeclNode,
                              CallNode,
                              ReturnStmtNode>;
 
@@ -85,6 +89,13 @@ struct ExprStmtNode
     ASTNodePtr expr;
 };
 
+struct PropertyExprNode
+{
+    ASTNodePtr instance;
+    Token dot;
+    Token name;
+};
+
 struct BlockStmtNode
 {
     Token end_brace;
@@ -126,6 +137,11 @@ struct VarDeclNode
     ASTNodePtr initializer;
 };
 
+struct ClassDeclNode
+{
+    Token name;
+};
+
 struct VariableExprNode
 {
     Token var;
@@ -133,7 +149,7 @@ struct VariableExprNode
 
 struct AssignmentExprNode
 {
-    VariableExprNode target;
+    std::variant<PropertyExprNode, VariableExprNode> target;
     ASTNodePtr value;
 };
 
@@ -196,7 +212,9 @@ class Parser
     ASTNodePtr _parse_var_declaration();
     ASTNodePtr _parse_function_declaration();
     ASTNodePtr _parse_variable();
+    ASTNodePtr _parse_class_declaration();
     ASTNodePtr _parse_call(ASTNodePtr);
+    ASTNodePtr _parse_dot(ASTNodePtr);
     ASTNodePtr _parse_assignment_expression(ASTNodePtr);
 
     static ParseRule _parse_rules[];

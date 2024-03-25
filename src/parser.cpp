@@ -31,7 +31,7 @@ Parser::ParseRule Parser::_parse_rules[] = {
     [type_to_int(TokenType::LEFT_BRACE)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::RIGHT_BRACE)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::COMMA)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::DOT)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::DOT)] = {nullptr, &Parser::_parse_dot, Precedence::CALL},
     [type_to_int(TokenType::MINUS)] = {&Parser::_parse_unary_expression,
                                        &Parser::_parse_binary_expression,
                                        Precedence::TERM},
@@ -141,6 +141,10 @@ ASTNodePtr Parser::_parse_declaration()
     {
         ret = _parse_function_declaration();
     }
+    else if(_match(TokenType::CLASS))
+    {
+        ret = _parse_class_declaration();
+    }
     else
     {
         ret = _parse_statement();
@@ -152,6 +156,34 @@ ASTNodePtr Parser::_parse_declaration()
     }
 
     return ret;
+}
+
+ASTNodePtr Parser::_parse_class_declaration()
+{
+    auto class_name = _consume(TokenType::IDENTIFIER, "Expected class name.");
+
+    if(!class_name)
+    {
+        return nullptr;
+    }
+
+    _consume(TokenType::LEFT_BRACE, "Expected '{' before class body.");
+    _consume(TokenType::RIGHT_BRACE, "Expected '}' after class body.");
+
+    return std::make_unique<ASTNode>(ASTNode{ClassDeclNode{class_name.value()}});
+}
+
+ASTNodePtr Parser::_parse_dot(ASTNodePtr left)
+{
+    auto dot = _previous;
+    auto name = _consume(TokenType::IDENTIFIER, "Expected property name after '.'.");
+
+    if(!name)
+    {
+        return nullptr;
+    }
+
+    return std::make_unique<ASTNode>(ASTNode{PropertyExprNode{std::move(left), dot, name.value()}});
 }
 
 ASTNodePtr Parser::_parse_block_statement()
@@ -258,16 +290,29 @@ ASTNodePtr Parser::_parse_call(ASTNodePtr callee)
 
 ASTNodePtr Parser::_parse_assignment_expression(ASTNodePtr left)
 {
-    auto var = std::get_if<VariableExprNode>(left.get());
+    auto* var = std::get_if<VariableExprNode>(left.get());
+    auto* property = std::get_if<PropertyExprNode>(left.get());
 
-    if(!var)
+    decltype(AssignmentExprNode::target) target;
+
+    if(var)
+    {
+        target = std::move(*var);
+    }
+    else if(property)
+    {
+        target = std::move(*property);
+    }
+    else
     {
         _error("Invalid assignment target");
         return nullptr;
     }
+
     auto expr = _parse_expression();
 
-    return std::make_unique<ASTNode>(ASTNode{AssignmentExprNode{*var, std::move(expr)}});
+    return std::make_unique<ASTNode>(
+        ASTNode{AssignmentExprNode{std::move(target), std::move(expr)}});
 }
 
 ASTNodePtr Parser::_parse_statement()

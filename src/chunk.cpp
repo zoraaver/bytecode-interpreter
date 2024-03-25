@@ -92,6 +92,8 @@ int Chunk::_disassemble_instruction(int offset)
         return type(#name, sign, offset);
         INSTRUCTION(RETURN, simple_instruction)
         INSTRUCTION(CONSTANT, _constant_instruction)
+        INSTRUCTION(GET_PROPERTY, _constant_instruction)
+        INSTRUCTION(SET_PROPERTY, _constant_instruction)
         INSTRUCTION(NEGATE, simple_instruction)
         INSTRUCTION(ADD, simple_instruction)
         INSTRUCTION(SUBTRACT, simple_instruction)
@@ -109,6 +111,7 @@ int Chunk::_disassemble_instruction(int offset)
         INSTRUCTION(GET_GLOBAL, simple_instruction)
         INSTRUCTION(SET_GLOBAL, simple_instruction)
         INSTRUCTION(CLOSE_UPVALUE, simple_instruction)
+        INSTRUCTION(CLASS, _byte_instruction)
         INSTRUCTION(GET_LOCAL, _byte_instruction)
         INSTRUCTION(SET_LOCAL, _byte_instruction)
         INSTRUCTION(CALL, _byte_instruction)
@@ -142,7 +145,7 @@ int Chunk::_disassemble_instruction(int offset)
     }
 }
 
-int Chunk::add_constant(Value value)
+int Chunk::add_constant(const Value& value)
 {
     _constants.push_back(value);
     return _constants.size() - 1;
