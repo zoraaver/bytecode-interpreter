@@ -24,7 +24,9 @@ public:
         JumpLimitExceeded,
         LoopLimitExceeded,
         ReturnOutsideFunction,
-        UpvalueLimitExceeded
+        UpvalueLimitExceeded,
+        ThisOutsideClass,
+        ReturnInsideInitializer
     };
 
 private:
@@ -35,10 +37,22 @@ private:
     enum class FunctionType
     {
         SCRIPT,
-        FUNCTION
+        FUNCTION,
+        METHOD,
+        INITIALIZER
     };
 
     const FunctionType _type = FunctionType::SCRIPT;
+
+    struct ClassCompiler
+    {
+        ClassCompiler(ClassCompiler* enclosing)
+            : enclosing(enclosing)
+        { }
+        ClassCompiler* enclosing = nullptr;
+    };
+
+    ClassCompiler _current_class;
 
     struct Local
     {
@@ -88,11 +102,7 @@ private:
         _emit_byte(static_cast<uint8_t>(code), line);
     };
 
-    void _emit_return(int line)
-    {
-        _emit_bytecode(OpCode::NIL, line);
-        _emit_bytecode(OpCode::RETURN, line);
-    }
+    void _emit_return(int line);
 
     void _emit_bytes(uint8_t byte_1, uint8_t byte_2, int line)
     {
@@ -116,6 +126,8 @@ private:
     FunctionObject* _compile_function(std::string_view name,
                                       const std::vector<Token>& params,
                                       const std::vector<ASTNodePtr>& declarations);
+
+    void _compile_named_variable(const Token& name);
 
     class Exception : public std::exception
     {

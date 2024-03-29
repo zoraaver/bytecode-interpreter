@@ -77,7 +77,24 @@ bool VM::_call_value(Value& callee, int arg_count)
         {
             _stack[_stack.size() - arg_count - 1] =
                 Value{_allocator.allocate<InstanceObject>(true, *klass)};
+            auto* initializer = klass->methods["init"];
+
+            if(initializer)
+            {
+                return _call(initializer, arg_count);
+            }
+            else if(arg_count != 0)
+            {
+                _runtime_error("Expected 0 arguments but got {}.", arg_count);
+                return false;
+            }
+
             return true;
+        }
+        else if(auto bound_method = callee.as_object()->as<BoundMethodObject>())
+        {
+            _stack[_stack.size() - arg_count - 1] = bound_method->receiver;
+            return _call(bound_method->method, arg_count);
         }
         else if(auto native_func = callee.as_object()->as<NativeFunctionObject>())
         {
@@ -119,6 +136,35 @@ bool VM::_call(ClosureObject* closure, int arg_count)
     _current_frame = _callstack.top_addr();
 
     return true;
+}
+
+bool VM::_invoke(std::string_view name, int arg_count)
+{
+    auto* receiver = _stack[_stack.size() - arg_count - 1].as_object()->as<InstanceObject>();
+
+    if(!receiver)
+    {
+        _runtime_error("Only instances have methods.");
+        return false;
+    }
+
+    auto method_it = receiver->klass.methods.find(name);
+
+    if(method_it == receiver->klass.methods.end())
+    {
+        auto field_it = receiver->fields.find(name);
+        if(field_it == receiver->fields.end())
+        {
+            _runtime_error("Undefined property '{}'.", name);
+            return false;
+        }
+
+        _stack[_stack.size() - arg_count - 1] = field_it->second;
+
+        return _call_value(field_it->second, arg_count);
+    }
+
+    return _call(method_it->second, arg_count);
 }
 
 Chunk& VM::_current_chunk()
@@ -184,6 +230,24 @@ void VM::_close_upvalues(Value* last)
 
         return true;
     });
+}
+
+bool VM::_bind_method(const ClassObject& klass, std::string_view name)
+{
+    auto method_it = klass.methods.find(name);
+
+    if(method_it == klass.methods.end())
+    {
+        return false;
+    }
+
+    auto* bound_method =
+        _allocator.allocate<BoundMethodObject>(true, _stack.top(), method_it->second);
+
+    _stack.pop();
+    _stack.push(Value{bound_method});
+
+    return true;
 }
 
 InterpretResult VM::_run()
@@ -441,16 +505,21 @@ InterpretResult VM::_run()
                 return InterpretResult::RUNTIME_ERROR;
             }
 
-            auto it = instance->fields.find(name->value());
+            auto field_it = instance->fields.find(name->value());
 
-            if(it == instance->fields.end())
+            if(field_it != instance->fields.end())
+            {
+                _stack.pop();
+                _stack.push(field_it->second);
+                break;
+            }
+
+            if(!_bind_method(instance->klass, name->value()))
             {
                 _runtime_error("Undefined property '{}'.", name->value());
                 return InterpretResult::RUNTIME_ERROR;
             }
 
-            _stack.pop();
-            _stack.push(it->second);
             break;
         }
         case OpCode::SET_PROPERTY: {
@@ -470,6 +539,29 @@ InterpretResult VM::_run()
             // Replace the instance on the top of the stack with the assigned value.
             _stack.top() = val;
 
+            break;
+        }
+        case OpCode::METHOD: {
+            auto name = _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
+
+            auto& method = _stack.top();
+            auto* klass = _stack[_stack.size() - 2].as_object()->as<ClassObject>();
+
+            klass->methods[name->value()] = method.as_object()->as<ClosureObject>();
+
+            _stack.pop();
+
+            break;
+        }
+        case OpCode::INVOKE: {
+            auto method =
+                _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
+            auto arg_count = _read_byte();
+
+            if(!_invoke(method->value(), arg_count))
+            {
+                return InterpretResult::RUNTIME_ERROR;
+            }
             break;
         }
         }

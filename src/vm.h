@@ -3,9 +3,11 @@
 
 #include <cstdint>
 #include <print>
+#include <string_view>
 
 #include "chunk.h"
 #include "common.h"
+#include "object.h"
 #include "stack.h"
 #include "value.h"
 
@@ -51,8 +53,9 @@ private:
     constexpr void _runtime_error(std::string_view format, Args&&... args);
 
     bool _call_value(Value& callee, int arg_count);
-
     bool _call(ClosureObject* callee, int arg_count);
+    bool _bind_method(const ClassObject& klass, std::string_view name);
+    bool _invoke(std::string_view name, int arg_count);
 
     InterpretResult _run();
 

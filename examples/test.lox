@@ -1,13 +1,24 @@
 // this is a comment
 
-class Car {}
+class Car {
+    print(a) {
+        while (a > 0) {
+            print("Size is " + this.size + " and make is " + this.make);
+            a = a - 1;
+        }
+    }
 
-var car = Car();
+    drive() {
+        print("Drive!");
+    }
 
-car.size = 3;
-car.make = "ferrari";
+    init(size, make) {
+        this.size = size;
+        this.make = make;
+    }
+}
 
-print(car.size);
-print(car.make);
+var car = Car("5", "ferrari");
 
-print(car.noop);
+car.print(3);
+car.drive();

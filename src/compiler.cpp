@@ -22,7 +22,14 @@ Compiler::Compiler(ObjectAllocator& allocator, FunctionType type, Compiler* encl
     : _allocator(allocator)
     , _type(type)
     , _enclosing(enclosing)
-{ }
+    , _current_class(enclosing ? &enclosing->_current_class : nullptr)
+{
+    if(_type == FunctionType::METHOD || _type == FunctionType::INITIALIZER)
+    {
+        _locals[0].name.lexeme = "this";
+        _locals[0].name.type = TokenType::THIS;
+    }
+}
 
 std::expected<FunctionObject*, Compiler::Error>
 Compiler::compile(const std::vector<ASTNodePtr>& declarations)
@@ -46,6 +53,22 @@ Compiler::compile(const std::vector<ASTNodePtr>& declarations)
     _emit_return(0);
 
     return _function;
+}
+
+void Compiler::_emit_return(int line)
+{
+    if(_type == FunctionType::INITIALIZER)
+    {
+        _emit_bytecode(OpCode::GET_LOCAL, line);
+        // 'this' is always the first local slot
+        _emit_byte(0, line);
+    }
+    else
+    {
+        _emit_bytecode(OpCode::NIL, line);
+    }
+
+    _emit_bytecode(OpCode::RETURN, line);
 }
 
 FunctionObject* Compiler::_compile_function(std::string_view name,
@@ -94,6 +117,11 @@ std::string Compiler::_get_error_message(const Exception& ex) const
     case Error::ReturnOutsideFunction:
         return std::format(
             "Return outside function: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
+    case Error::ThisOutsideClass:
+        return std::format("This outside class: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
+    case Error::ReturnInsideInitializer:
+        return std::format(
+            "Return inside initializer: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
     }
 }
 
@@ -252,7 +280,11 @@ void Compiler::operator()(const ReturnStmtNode& node)
         throw Exception{node.keyword, Error::ReturnOutsideFunction};
     }
 
-    if(node.value)
+    if(node.value && _type == FunctionType::INITIALIZER)
+    {
+        throw Exception{node.keyword, Error::ReturnInsideInitializer};
+    }
+    else if(node.value)
     {
         std::visit(*this, *node.value);
         _emit_bytecode(OpCode::RETURN, node.keyword.line);
@@ -265,12 +297,22 @@ void Compiler::operator()(const ReturnStmtNode& node)
 
 void Compiler::operator()(const FunDeclNode& node)
 {
-    Compiler func_compiler{_allocator, FunctionType::FUNCTION, this};
+    auto type = FunctionType::FUNCTION;
 
-    auto body = std::get_if<BlockStmtNode>(node.body.get());
-    assert(body && "Function body is not a block statement");
+    if(node.method && node.name.lexeme == "init")
+    {
+        type = FunctionType::INITIALIZER;
+    }
+    else if(node.method)
+    {
+        type = FunctionType::METHOD;
+    }
 
-    auto func = func_compiler._compile_function(node.name.lexeme, node.params, body->statements);
+    Compiler func_compiler{_allocator, type, this};
+
+    auto& body = std::get<BlockStmtNode>(*node.body);
+
+    auto func = func_compiler._compile_function(node.name.lexeme, node.params, body.statements);
 
     _emit_bytes(static_cast<uint8_t>(OpCode::CLOSURE), _make_constant(Value{func}), node.name.line);
 
@@ -280,7 +322,15 @@ void Compiler::operator()(const FunDeclNode& node)
         _emit_byte(func_compiler._upvalues[i].index, node.name.line);
     }
 
-    _define_variable(node.name);
+    if(node.method)
+    {
+        auto index = _make_constant(Value{_allocator.allocate_string(node.name.lexeme)});
+        _emit_bytes(static_cast<uint8_t>(OpCode::METHOD), index, node.name.line);
+    }
+    else
+    {
+        _define_variable(node.name);
+    }
 }
 
 void Compiler::operator()(const ClassDeclNode& node)
@@ -290,18 +340,51 @@ void Compiler::operator()(const ClassDeclNode& node)
     _emit_bytes(static_cast<uint8_t>(OpCode::CLASS), constant, node.name.line);
 
     _define_variable(node.name);
+
+    // Push the class on the stack so it's availabe when defining all the
+    // methods.
+    _compile_named_variable(node.name);
+
+    for(auto& method : node.methods)
+    {
+        std::visit(*this, *method);
+    }
+
+    // Pop the class off the stack
+    _emit_bytecode(OpCode::POP, node.end_brace.line);
 }
 
 void Compiler::operator()(const CallNode& node)
 {
-    std::visit(*this, *node.callee);
+    auto method = std::get_if<PropertyExprNode>(node.callee.get());
+
+    // Optimize for the case where we're calling a method on an instance directly.
+    if(method)
+    {
+        // Compile the instance but don't compile the property itself.
+        std::visit(*this, *method->instance);
+    }
+    else
+    {
+        std::visit(*this, *node.callee);
+    }
 
     for(auto& arg : node.args)
     {
         std::visit(*this, *arg);
     }
 
-    _emit_bytes(static_cast<uint8_t>(OpCode::CALL), node.args.size(), node.paren.line);
+    if(method)
+    {
+        auto name = _make_constant(Value{_allocator.allocate_string(method->name.lexeme)});
+
+        _emit_bytes(static_cast<uint8_t>(OpCode::INVOKE), name, node.paren.line);
+        _emit_byte(node.args.size(), node.paren.line);
+    }
+    else
+    {
+        _emit_bytes(static_cast<uint8_t>(OpCode::CALL), node.args.size(), node.paren.line);
+    }
 }
 
 void Compiler::_emit_loop(uint32_t loop_start, const Token& tok)
@@ -422,24 +505,34 @@ void Compiler::operator()(const VarDeclNode& node)
 
 void Compiler::operator()(const VariableExprNode& node)
 {
-    auto arg = _resolve_local(node.var);
+    _compile_named_variable(node.var);
+}
+
+void Compiler::_compile_named_variable(const Token& name)
+{
+    if(name.type == TokenType::THIS && _current_class.enclosing == nullptr)
+    {
+        throw Exception{name, Error::ThisOutsideClass};
+    }
+
+    auto arg = _resolve_local(name);
     OpCode op;
 
     if(arg != -1)
     {
         op = OpCode::GET_LOCAL;
     }
-    else if((arg = _resolve_upvalue(node.var)) != -1)
+    else if((arg = _resolve_upvalue(name)) != -1)
     {
         op = OpCode::GET_UPVALUE;
     }
     else
     {
-        arg = _make_constant(Value{_allocator.allocate_string(node.var.lexeme, false)});
+        arg = _make_constant(Value{_allocator.allocate_string(name.lexeme, false)});
         op = OpCode::GET_GLOBAL;
     }
 
-    _emit_bytes(static_cast<uint8_t>(op), arg, node.var.line);
+    _emit_bytes(static_cast<uint8_t>(op), arg, name.line);
 }
 
 void Compiler::operator()(const AssignmentExprNode& node)

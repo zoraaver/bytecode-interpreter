@@ -63,51 +63,6 @@ public:
     virtual ~Object();
 };
 
-struct ClassObject : public Object
-{
-    ClassObject(std::string name)
-        : name(std::move(name))
-    { }
-
-    ADD_SIZE_METHOD(ClassObject)
-
-    const std::string name;
-
-    std::string to_string() const override
-    {
-        return std::format("<class {}>", name);
-    }
-};
-
-struct InstanceObject : public Object
-{
-    InstanceObject(ClassObject& klass)
-        : klass(klass)
-    { }
-
-    ADD_SIZE_METHOD(InstanceObject)
-
-    ClassObject& klass;
-    HashMap<Value> fields;
-
-    void blacken(GreyList<Object*>& grey_list) override
-    {
-        Object::blacken(grey_list);
-
-        klass.mark(grey_list);
-
-        for(auto& [key, value] : fields)
-        {
-            value.mark(grey_list);
-        }
-    }
-
-    std::string to_string() const override
-    {
-        return std::format("<instance {}>", klass.name);
-    }
-};
-
 class StringObject : public Object
 {
     std::string _value;
@@ -225,6 +180,88 @@ struct ClosureObject : public Object
     }
 
     virtual ~ClosureObject(){};
+};
+
+struct BoundMethodObject : public Object
+{
+    Value receiver;
+    ClosureObject* method;
+
+    BoundMethodObject(const Value& receiver, ClosureObject* method)
+        : receiver(receiver)
+        , method(method)
+    { }
+
+    ADD_SIZE_METHOD(BoundMethodObject)
+
+    void blacken(GreyList<Object*>& grey_list) override
+    {
+        Object::blacken(grey_list);
+
+        receiver.mark(grey_list);
+        method->mark(grey_list);
+    }
+
+    std::string to_string() const override
+    {
+        return method->to_string();
+    }
+};
+
+struct ClassObject : public Object
+{
+    ClassObject(std::string name)
+        : name(std::move(name))
+    { }
+
+    ADD_SIZE_METHOD(ClassObject)
+
+    const std::string name;
+    HashMap<ClosureObject*> methods;
+
+    void blacken(GreyList<Object*>& grey_list) override
+    {
+        Object::blacken(grey_list);
+
+        for(auto& [key, method] : methods)
+        {
+            method->blacken(grey_list);
+        }
+    }
+
+    std::string to_string() const override
+    {
+        return std::format("<class {}>", name);
+    }
+};
+
+struct InstanceObject : public Object
+{
+    InstanceObject(ClassObject& klass)
+        : klass(klass)
+    { }
+
+    ADD_SIZE_METHOD(InstanceObject)
+
+    ClassObject& klass;
+    HashMap<Value> fields;
+
+    void blacken(GreyList<Object*>& grey_list) override
+    {
+        Object::blacken(grey_list);
+
+        klass.mark(grey_list);
+
+        for(auto& [key, value] : fields)
+        {
+            value.mark(grey_list);
+        }
+    }
+
+    std::string to_string() const override
+    {
+        return std::format("<instance {}>", klass.name);
+    }
 };
 
 struct NativeFunctionObject : public Object

@@ -29,6 +29,17 @@ int Chunk::_constant_instruction(std::string_view name, int offset) const
     return offset + 2;
 }
 
+int Chunk::_invoke_instruction(std::string_view name, int offset) const
+{
+    auto constant = _code.at(offset + 1);
+    auto arg_count = _code.at(offset + 2);
+
+    std::println(
+        "{:16} ({} args) {:4d} {}", name, arg_count, constant, _constants.at(constant).to_string());
+
+    return offset + 3;
+}
+
 int Chunk::_byte_instruction(std::string_view name, int offset) const
 {
     auto slot = _code.at(offset + 1);
@@ -94,6 +105,7 @@ int Chunk::_disassemble_instruction(int offset)
         INSTRUCTION(CONSTANT, _constant_instruction)
         INSTRUCTION(GET_PROPERTY, _constant_instruction)
         INSTRUCTION(SET_PROPERTY, _constant_instruction)
+        INSTRUCTION(METHOD, _constant_instruction)
         INSTRUCTION(NEGATE, simple_instruction)
         INSTRUCTION(ADD, simple_instruction)
         INSTRUCTION(SUBTRACT, simple_instruction)
@@ -115,6 +127,7 @@ int Chunk::_disassemble_instruction(int offset)
         INSTRUCTION(GET_LOCAL, _byte_instruction)
         INSTRUCTION(SET_LOCAL, _byte_instruction)
         INSTRUCTION(CALL, _byte_instruction)
+        INSTRUCTION(INVOKE, _invoke_instruction)
         INSTRUCTION(GET_UPVALUE, _byte_instruction)
         INSTRUCTION(SET_UPVALUE, _byte_instruction)
         INSTRUCTION_1(JUMP_IF_FALSE, _jump_instruction, 1)

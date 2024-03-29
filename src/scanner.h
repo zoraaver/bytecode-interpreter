@@ -1,7 +1,6 @@
 #ifndef LOX_SCANNER_H
 #define LOX_SCANNER_H
 
-#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -61,7 +60,7 @@ const char* get_token_type_name(TokenType type);
 struct Token
 {
     TokenType type;
-    int line;
+    int line = 0;
     std::string_view lexeme;
 };
 

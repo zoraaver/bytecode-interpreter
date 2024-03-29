@@ -44,7 +44,9 @@ enum class OpCode : uint8_t
     CLOSE_UPVALUE,
     CLASS,
     GET_PROPERTY,
-    SET_PROPERTY
+    SET_PROPERTY,
+    METHOD,
+    INVOKE
 };
 
 class Chunk
@@ -57,6 +59,7 @@ class Chunk
     int _constant_instruction(std::string_view name, int offset) const;
     int _byte_instruction(std::string_view name, int offset) const;
     int _jump_instruction(std::string_view name, int sign, int offset) const;
+    int _invoke_instruction(std::string_view name, int offset) const;
 
 public:
     void disassemble(std::string_view name);

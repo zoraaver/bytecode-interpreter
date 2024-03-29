@@ -75,7 +75,7 @@ Parser::ParseRule Parser::_parse_rules[] = {
     [type_to_int(TokenType::OR)] = {nullptr, &Parser::_parse_binary_expression, Precedence::OR},
     [type_to_int(TokenType::RETURN)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::SUPER)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::THIS)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::THIS)] = {&Parser::_parse_this, nullptr, Precedence::NONE},
     [type_to_int(TokenType::TRUE)] = {&Parser::_parse_literal, nullptr, Precedence::NONE},
     [type_to_int(TokenType::VAR)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::WHILE)] = {nullptr, nullptr, Precedence::NONE},
@@ -139,7 +139,7 @@ ASTNodePtr Parser::_parse_declaration()
     }
     else if(_match(TokenType::FUN))
     {
-        ret = _parse_function_declaration();
+        ret = _parse_function_declaration(false);
     }
     else if(_match(TokenType::CLASS))
     {
@@ -168,9 +168,18 @@ ASTNodePtr Parser::_parse_class_declaration()
     }
 
     _consume(TokenType::LEFT_BRACE, "Expected '{' before class body.");
-    _consume(TokenType::RIGHT_BRACE, "Expected '}' after class body.");
 
-    return std::make_unique<ASTNode>(ASTNode{ClassDeclNode{class_name.value()}});
+    std::vector<ASTNodePtr> methods;
+
+    while(_current.type != TokenType::RIGHT_BRACE && _current.type != TokenType::END_OF_FILE)
+    {
+        methods.push_back(_parse_function_declaration(true));
+    }
+
+    auto end_brace = _consume(TokenType::RIGHT_BRACE, "Expected '}' after class body.");
+
+    return std::make_unique<ASTNode>(
+        ASTNode{ClassDeclNode{class_name.value(), std::move(methods), end_brace.value()}});
 }
 
 ASTNodePtr Parser::_parse_dot(ASTNodePtr left)
@@ -200,7 +209,7 @@ ASTNodePtr Parser::_parse_block_statement()
     return std::make_unique<ASTNode>(ASTNode{BlockStmtNode{_previous, std::move(statements)}});
 }
 
-ASTNodePtr Parser::_parse_function_declaration()
+ASTNodePtr Parser::_parse_function_declaration(bool method)
 {
     auto func_name = _consume(TokenType::IDENTIFIER, "Expected function name");
 
@@ -239,7 +248,7 @@ ASTNodePtr Parser::_parse_function_declaration()
     auto body = _parse_block_statement();
 
     return std::make_unique<ASTNode>(
-        ASTNode{FunDeclNode{func_name.value(), std::move(params), std::move(body)}});
+        ASTNode{FunDeclNode{func_name.value(), std::move(params), std::move(body), method}});
 }
 
 ASTNodePtr Parser::_parse_var_declaration()
@@ -257,6 +266,11 @@ ASTNodePtr Parser::_parse_var_declaration()
     _consume(TokenType::SEMICOLON, "Expect ';' after expression.");
 
     return std::make_unique<ASTNode>(ASTNode{VarDeclNode{identifier, std::move(initializer)}});
+}
+
+ASTNodePtr Parser::_parse_this()
+{
+    return _parse_variable();
 }
 
 ASTNodePtr Parser::_parse_variable()

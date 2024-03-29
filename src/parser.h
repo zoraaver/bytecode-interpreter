@@ -129,6 +129,7 @@ struct FunDeclNode
     Token name;
     std::vector<Token> params;
     ASTNodePtr body;
+    bool method;
 };
 
 struct VarDeclNode
@@ -140,6 +141,8 @@ struct VarDeclNode
 struct ClassDeclNode
 {
     Token name;
+    std::vector<ASTNodePtr> methods;
+    Token end_brace;
 };
 
 struct VariableExprNode
@@ -210,7 +213,8 @@ class Parser
     ASTNodePtr _parse_for_statement();
     ASTNodePtr _parse_return_statement();
     ASTNodePtr _parse_var_declaration();
-    ASTNodePtr _parse_function_declaration();
+    ASTNodePtr _parse_this();
+    ASTNodePtr _parse_function_declaration(bool method);
     ASTNodePtr _parse_variable();
     ASTNodePtr _parse_class_declaration();
     ASTNodePtr _parse_call(ASTNodePtr);
