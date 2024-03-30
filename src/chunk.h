@@ -48,7 +48,8 @@ enum class OpCode : uint8_t
     METHOD,
     INVOKE,
     INHERIT,
-    GET_SUPER
+    GET_SUPER,
+    SUPER_INVOKE
 };
 
 class Chunk

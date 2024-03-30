@@ -413,6 +413,7 @@ void Compiler::operator()(const SuperExprNode& node)
 void Compiler::operator()(const CallNode& node)
 {
     auto method = std::get_if<PropertyExprNode>(node.callee.get());
+    auto super = std::get_if<SuperExprNode>(node.callee.get());
 
     // Optimize for the case where we're calling a method on an instance directly.
     if(method)
@@ -420,7 +421,8 @@ void Compiler::operator()(const CallNode& node)
         // Compile the instance but don't compile the property itself.
         std::visit(*this, *method->instance);
     }
-    else
+    // Optimize for the case where we're calling a method on the superclass directly.
+    else if(!super)
     {
         std::visit(*this, *node.callee);
     }
@@ -435,6 +437,13 @@ void Compiler::operator()(const CallNode& node)
         auto name = _make_constant(Value{_allocator.allocate_string(method->name.lexeme, false)});
 
         _emit_bytes(static_cast<uint8_t>(OpCode::INVOKE), name, node.paren.line);
+        _emit_byte(node.args.size(), node.paren.line);
+    }
+    else if(super)
+    {
+        auto name = _make_constant(Value{_allocator.allocate_string(super->method.lexeme, false)});
+        _compile_named_variable(super->super);
+        _emit_bytes(static_cast<uint8_t>(OpCode::SUPER_INVOKE), name, super->method.line);
         _emit_byte(node.args.size(), node.paren.line);
     }
     else

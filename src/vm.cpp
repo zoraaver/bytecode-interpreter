@@ -138,9 +138,10 @@ bool VM::_call(ClosureObject* closure, int arg_count)
     return true;
 }
 
-bool VM::_invoke(std::string_view name, int arg_count)
+bool VM::_invoke(std::string_view name, int arg_count, ClassObject* klass)
 {
     auto* receiver = _stack[_stack.size() - arg_count - 1].as_object()->as<InstanceObject>();
+    klass = klass ? klass : &receiver->klass;
 
     if(!receiver)
     {
@@ -148,10 +149,17 @@ bool VM::_invoke(std::string_view name, int arg_count)
         return false;
     }
 
-    auto method_it = receiver->klass.methods.find(name);
+    auto method_it = klass->methods.find(name);
 
-    if(method_it == receiver->klass.methods.end())
+    if(method_it == klass->methods.end())
     {
+        // This is a super call so only methods are allowed.
+        if(klass != &receiver->klass)
+        {
+            _runtime_error("Undefined method '{}' for superclass {}.", name, klass->name);
+            return false;
+        }
+
         auto field_it = receiver->fields.find(name);
         if(field_it == receiver->fields.end())
         {
@@ -588,6 +596,21 @@ InterpretResult VM::_run()
                 _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
 
             if(!_bind_method(*superclass, method->value()))
+            {
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            break;
+        }
+        case OpCode::SUPER_INVOKE: {
+            auto* method =
+                _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
+
+            auto arg_count = _read_byte();
+
+            auto* superclass = _stack.pop().as_object()->as<ClassObject>();
+
+            if(!_invoke(method->value(), arg_count, superclass))
             {
                 return InterpretResult::RUNTIME_ERROR;
             }
