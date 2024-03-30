@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdint>
 #include <format>
+#include <optional>
 #include <print>
 #include <string_view>
 #include <sys/stat.h>
@@ -22,7 +23,7 @@ Compiler::Compiler(ObjectAllocator& allocator, FunctionType type, Compiler* encl
     : _allocator(allocator)
     , _type(type)
     , _enclosing(enclosing)
-    , _current_class(enclosing ? &enclosing->_current_class : nullptr)
+    , _current_class(enclosing ? enclosing->_current_class : std::nullopt)
 {
     if(_type == FunctionType::METHOD || _type == FunctionType::INITIALIZER)
     {
@@ -122,6 +123,15 @@ std::string Compiler::_get_error_message(const Exception& ex) const
     case Error::ReturnInsideInitializer:
         return std::format(
             "Return inside initializer: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
+    case Error::CyclicInheritance:
+        return std::format("Cyclic inheritance: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
+    case Error::SuperUsedInClassWithNoSuperClass:
+        return std::format("Super used in class with no super class: line [{}] at '{}'",
+                           ex.token.line,
+                           ex.token.lexeme);
+    case Error::SuperUsedOutsideClass:
+        return std::format(
+            "Super used outside class: line [{}] at '{}'", ex.token.line, ex.token.lexeme);
     }
 }
 
@@ -214,7 +224,7 @@ void Compiler::operator()(const PropertyExprNode& node)
 {
     std::visit(*this, *node.instance);
 
-    auto name = _make_constant(Value{_allocator.allocate_string(node.name.lexeme)});
+    auto name = _make_constant(Value{_allocator.allocate_string(node.name.lexeme, false)});
 
     _emit_bytes(static_cast<uint8_t>(OpCode::GET_PROPERTY), name, node.name.line);
 }
@@ -324,7 +334,7 @@ void Compiler::operator()(const FunDeclNode& node)
 
     if(node.method)
     {
-        auto index = _make_constant(Value{_allocator.allocate_string(node.name.lexeme)});
+        auto index = _make_constant(Value{_allocator.allocate_string(node.name.lexeme, false)});
         _emit_bytes(static_cast<uint8_t>(OpCode::METHOD), index, node.name.line);
     }
     else
@@ -335,11 +345,31 @@ void Compiler::operator()(const FunDeclNode& node)
 
 void Compiler::operator()(const ClassDeclNode& node)
 {
-    auto constant = _make_constant(Value{_allocator.allocate_string(node.name.lexeme)});
+    auto prev = _current_class;
+    _current_class = ClassCompiler{};
+
+    auto constant = _make_constant(Value{_allocator.allocate_string(node.name.lexeme, false)});
 
     _emit_bytes(static_cast<uint8_t>(OpCode::CLASS), constant, node.name.line);
 
     _define_variable(node.name);
+
+    if(node.superclass)
+    {
+        if(node.superclass.value().lexeme == node.name.lexeme)
+        {
+            throw Exception{node.name, Error::CyclicInheritance};
+        }
+
+        _begin_scope();
+        _define_variable({.type = TokenType::SUPER, .line = node.name.line, .lexeme = "super"});
+        // Push the superclass and then the subclass variables onto the stack.
+        _compile_named_variable(node.superclass.value());
+        _compile_named_variable(node.name);
+        _emit_bytecode(OpCode::INHERIT, node.name.line);
+
+        _current_class->has_superclass = true;
+    }
 
     // Push the class on the stack so it's availabe when defining all the
     // methods.
@@ -352,6 +382,32 @@ void Compiler::operator()(const ClassDeclNode& node)
 
     // Pop the class off the stack
     _emit_bytecode(OpCode::POP, node.end_brace.line);
+
+    if(_current_class->has_superclass)
+    {
+        _end_scope(node.end_brace);
+    }
+
+    _current_class = prev;
+}
+
+void Compiler::operator()(const SuperExprNode& node)
+{
+    if(!_current_class)
+    {
+        throw Exception{node.super, Error::SuperUsedOutsideClass};
+    }
+
+    if(!_current_class->has_superclass)
+    {
+        throw Exception{node.super, Error::SuperUsedInClassWithNoSuperClass};
+    }
+
+    auto index = _make_constant(Value{_allocator.allocate_string(node.method.lexeme, false)});
+
+    _compile_named_variable(node.super);
+    _compile_named_variable({TokenType::THIS, node.super.line, "this"});
+    _emit_bytes(static_cast<uint8_t>(OpCode::GET_SUPER), index, node.super.line);
 }
 
 void Compiler::operator()(const CallNode& node)
@@ -376,7 +432,7 @@ void Compiler::operator()(const CallNode& node)
 
     if(method)
     {
-        auto name = _make_constant(Value{_allocator.allocate_string(method->name.lexeme)});
+        auto name = _make_constant(Value{_allocator.allocate_string(method->name.lexeme, false)});
 
         _emit_bytes(static_cast<uint8_t>(OpCode::INVOKE), name, node.paren.line);
         _emit_byte(node.args.size(), node.paren.line);
@@ -454,16 +510,8 @@ void Compiler::_end_scope(const Token& brace)
     }
 }
 
-void Compiler::_define_variable(const Token& identifier)
+void Compiler::_add_local(const Token& identifier)
 {
-    if(_scope_depth == 0)
-    {
-        auto index = _make_constant(Value{_allocator.allocate_string(identifier.lexeme, false)});
-        _emit_bytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), index, identifier.line);
-
-        return;
-    }
-
     // Check for any local variables declared in the same scope with the same
     // name.
     for(auto i = _local_count - 1; i >= 0; i--)
@@ -489,6 +537,19 @@ void Compiler::_define_variable(const Token& identifier)
     _locals[_local_count++] = {.name = identifier, .depth = _scope_depth};
 }
 
+void Compiler::_define_variable(const Token& identifier)
+{
+    if(_scope_depth == 0)
+    {
+        auto index = _make_constant(Value{_allocator.allocate_string(identifier.lexeme, false)});
+        _emit_bytes(static_cast<uint8_t>(OpCode::DEFINE_GLOBAL), index, identifier.line);
+
+        return;
+    }
+
+    _add_local(identifier);
+}
+
 void Compiler::operator()(const VarDeclNode& node)
 {
     if(node.initializer)
@@ -510,7 +571,7 @@ void Compiler::operator()(const VariableExprNode& node)
 
 void Compiler::_compile_named_variable(const Token& name)
 {
-    if(name.type == TokenType::THIS && _current_class.enclosing == nullptr)
+    if(name.type == TokenType::THIS && !_current_class)
     {
         throw Exception{name, Error::ThisOutsideClass};
     }
@@ -550,7 +611,7 @@ void Compiler::operator()(const AssignmentExprNode& node)
         // Compile the expression to be stored.
         std::visit(*this, *node.value);
 
-        auto name = _make_constant(Value{_allocator.allocate_string(property->name.lexeme)});
+        auto name = _make_constant(Value{_allocator.allocate_string(property->name.lexeme, false)});
         _emit_bytes(static_cast<uint8_t>(OpCode::SET_PROPERTY), name, property->name.line);
 
         return;

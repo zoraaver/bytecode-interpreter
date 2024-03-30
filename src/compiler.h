@@ -26,7 +26,10 @@ public:
         ReturnOutsideFunction,
         UpvalueLimitExceeded,
         ThisOutsideClass,
-        ReturnInsideInitializer
+        ReturnInsideInitializer,
+        CyclicInheritance,
+        SuperUsedOutsideClass,
+        SuperUsedInClassWithNoSuperClass
     };
 
 private:
@@ -46,13 +49,12 @@ private:
 
     struct ClassCompiler
     {
-        ClassCompiler(ClassCompiler* enclosing)
-            : enclosing(enclosing)
-        { }
-        ClassCompiler* enclosing = nullptr;
+        ClassCompiler() { }
+
+        bool has_superclass = false;
     };
 
-    ClassCompiler _current_class;
+    std::optional<ClassCompiler> _current_class;
 
     struct Local
     {
@@ -90,6 +92,7 @@ private:
         ++_scope_depth;
     }
 
+    void _add_local(const Token& identifier);
     int _resolve_local(const Token& name);
     int _resolve_upvalue(const Token& name);
     int _add_upvalue(const Token& tok, uint8_t index, bool is_local);
@@ -167,6 +170,7 @@ public:
     void operator()(const ReturnStmtNode&);
     void operator()(const FunDeclNode&);
     void operator()(const ClassDeclNode&);
+    void operator()(const SuperExprNode&);
     void operator()(const CallNode&);
 };
 } // namespace lox

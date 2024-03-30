@@ -564,6 +564,36 @@ InterpretResult VM::_run()
             }
             break;
         }
+        case OpCode::INHERIT: {
+            auto* subclass = _stack.top().as_object()->as<ClassObject>();
+            auto* superclass = _stack[_stack.size() - 2].as_object()->as<ClassObject>();
+
+            if(!superclass)
+            {
+                _runtime_error("Superclass must be a class");
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            subclass->methods = superclass->methods;
+
+            // Pop the subclass and superclass.
+            _stack.pop();
+
+            break;
+        }
+        case OpCode::GET_SUPER: {
+            auto* superclass = _stack[_stack.size() - 2].as_object()->as<ClassObject>();
+
+            auto* method =
+                _current_chunk().get_constant(_read_byte()).as_object()->as<StringObject>();
+
+            if(!_bind_method(*superclass, method->value()))
+            {
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            break;
+        }
         }
 #undef BINARY_OP
     }

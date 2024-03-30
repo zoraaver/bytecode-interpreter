@@ -74,7 +74,7 @@ Parser::ParseRule Parser::_parse_rules[] = {
     [type_to_int(TokenType::NIL)] = {&Parser::_parse_literal, nullptr, Precedence::NONE},
     [type_to_int(TokenType::OR)] = {nullptr, &Parser::_parse_binary_expression, Precedence::OR},
     [type_to_int(TokenType::RETURN)] = {nullptr, nullptr, Precedence::NONE},
-    [type_to_int(TokenType::SUPER)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::SUPER)] = {&Parser::_parse_super, nullptr, Precedence::NONE},
     [type_to_int(TokenType::THIS)] = {&Parser::_parse_this, nullptr, Precedence::NONE},
     [type_to_int(TokenType::TRUE)] = {&Parser::_parse_literal, nullptr, Precedence::NONE},
     [type_to_int(TokenType::VAR)] = {nullptr, nullptr, Precedence::NONE},
@@ -167,6 +167,18 @@ ASTNodePtr Parser::_parse_class_declaration()
         return nullptr;
     }
 
+    std::optional<Token> superclass;
+
+    if(_match(TokenType::LESS))
+    {
+        superclass = _consume(TokenType::IDENTIFIER, "Expected superclass name after '<'.");
+
+        if(!superclass)
+        {
+            return nullptr;
+        }
+    }
+
     _consume(TokenType::LEFT_BRACE, "Expected '{' before class body.");
 
     std::vector<ASTNodePtr> methods;
@@ -178,8 +190,8 @@ ASTNodePtr Parser::_parse_class_declaration()
 
     auto end_brace = _consume(TokenType::RIGHT_BRACE, "Expected '}' after class body.");
 
-    return std::make_unique<ASTNode>(
-        ASTNode{ClassDeclNode{class_name.value(), std::move(methods), end_brace.value()}});
+    return std::make_unique<ASTNode>(ASTNode{
+        ClassDeclNode{class_name.value(), superclass, std::move(methods), end_brace.value()}});
 }
 
 ASTNodePtr Parser::_parse_dot(ASTNodePtr left)
@@ -271,6 +283,20 @@ ASTNodePtr Parser::_parse_var_declaration()
 ASTNodePtr Parser::_parse_this()
 {
     return _parse_variable();
+}
+
+ASTNodePtr Parser::_parse_super()
+{
+    auto super = _previous;
+    _consume(TokenType::DOT, "Expected '.' after 'super'.");
+    auto method = _consume(TokenType::IDENTIFIER, "Expected superclass method name.");
+
+    if(!method)
+    {
+        return nullptr;
+    }
+
+    return std::make_unique<ASTNode>(ASTNode{SuperExprNode{super, method.value()}});
 }
 
 ASTNodePtr Parser::_parse_variable()

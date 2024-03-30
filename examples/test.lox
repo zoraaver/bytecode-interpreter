@@ -1,24 +1,44 @@
 // this is a comment
 
-class Car {
+class Vehicle {
+    init(size, make) {
+        this.size = size;
+        this.make = make;
+    }
+
+    drive() {
+        print("Vehicle driving!");
+    }
+
     print(a) {
         while (a > 0) {
             print("Size is " + this.size + " and make is " + this.make);
             a = a - 1;
         }
     }
+}
 
-    drive() {
-        print("Drive!");
-    }
-
+class Car < Vehicle {
     init(size, make) {
         this.size = size;
         this.make = make;
     }
+
+    drive() {
+        super.drive();
+        print("Car driving!");
+    }
+
+    honk() {
+        print("Honk!");
+    }
 }
 
+var vehicle = Vehicle("6", "ford");
 var car = Car("5", "ferrari");
 
-car.print(3);
+// vehicle.print(1);
+// vehicle.drive();
+// car.print(1);
 car.drive();
+car.honk();

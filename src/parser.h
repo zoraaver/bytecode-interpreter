@@ -31,6 +31,7 @@ struct ClassDeclNode;
 struct CallNode;
 struct ReturnStmtNode;
 struct PropertyExprNode;
+struct SuperExprNode;
 
 using ASTNode = std::variant<BinExprNode,
                              ValueNode,
@@ -47,7 +48,8 @@ using ASTNode = std::variant<BinExprNode,
                              FunDeclNode,
                              ClassDeclNode,
                              CallNode,
-                             ReturnStmtNode>;
+                             ReturnStmtNode,
+                             SuperExprNode>;
 
 using ASTNodePtr = std::unique_ptr<ASTNode>;
 
@@ -96,6 +98,12 @@ struct PropertyExprNode
     Token name;
 };
 
+struct SuperExprNode
+{
+    Token super;
+    Token method;
+};
+
 struct BlockStmtNode
 {
     Token end_brace;
@@ -141,6 +149,7 @@ struct VarDeclNode
 struct ClassDeclNode
 {
     Token name;
+    std::optional<Token> superclass;
     std::vector<ASTNodePtr> methods;
     Token end_brace;
 };
@@ -216,6 +225,7 @@ class Parser
     ASTNodePtr _parse_this();
     ASTNodePtr _parse_function_declaration(bool method);
     ASTNodePtr _parse_variable();
+    ASTNodePtr _parse_super();
     ASTNodePtr _parse_class_declaration();
     ASTNodePtr _parse_call(ASTNodePtr);
     ASTNodePtr _parse_dot(ASTNodePtr);
