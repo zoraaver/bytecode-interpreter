@@ -34,11 +34,15 @@ class Car < Vehicle {
     }
 }
 
-var vehicle = Vehicle("6", "ford");
-var car = Car("5", "ferrari");
 
-// vehicle.print(1);
-// vehicle.drive();
-// car.print(1);
-car.drive();
-car.honk();
+fun main() {
+    var vehicle = Vehicle("6", "ford");
+    var car = Car("5", "ferrari");
+    var my_list = [1, vehicle, car, Car("3", "audi")];
+
+    for (var i = 0; i < 4; i = i + 1) {
+        print(my_list[i]);
+    }
+}
+
+main();

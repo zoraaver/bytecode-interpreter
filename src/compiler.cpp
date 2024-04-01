@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstdint>
 #include <format>
+#include <limits>
 #include <optional>
 #include <print>
 #include <string_view>
@@ -236,6 +237,25 @@ void Compiler::operator()(const ExprStmtNode& node)
     _emit_bytecode(OpCode::POP, node.token.line);
 }
 
+void Compiler::operator()(const ListDeclNode& node)
+{
+    // Push all expressions with in the last onto the stack.
+    for(auto& elem : node.elements)
+    {
+        std::visit(*this, *elem);
+    }
+
+    _emit_bytes(static_cast<uint8_t>(OpCode::LIST), node.elements.size(), node.end_bracket.line);
+}
+
+void Compiler::operator()(const ListIndexExprNode& node)
+{
+    std::visit(*this, *node.list);
+    std::visit(*this, *node.index);
+
+    _emit_bytecode(OpCode::LIST_INDEX, node.left_bracket.line);
+}
+
 void Compiler::operator()(const IfStmtNode& node)
 {
     std::visit(*this, *node.condition);
@@ -458,7 +478,7 @@ void Compiler::_emit_loop(uint32_t loop_start, const Token& tok)
 
     uint32_t loop_offset = _current_chunk().size() - loop_start + 2;
 
-    if(loop_offset > UINT16_MAX)
+    if(loop_offset > std::numeric_limits<uint16_t>::max())
     {
         throw Exception{tok, Error::LoopLimitExceeded};
     }
@@ -470,7 +490,7 @@ void Compiler::_patch_jump(int offset, const Token& tok)
 {
     uint32_t jump = (_current_chunk().size() - 2) - offset;
 
-    if(jump > UINT16_MAX)
+    if(jump > std::numeric_limits<uint16_t>::max())
     {
         throw Exception{tok, Error::JumpLimitExceeded};
     }
@@ -754,7 +774,7 @@ uint8_t Compiler::_make_constant(const Value& value)
 {
     auto index = _current_chunk().add_constant(value);
 
-    if(index > UINT8_MAX)
+    if(index > std::numeric_limits<uint8_t>::max())
     {
         throw Exception{Token{}, Error::ChunkConstantLimitExceeded};
     }

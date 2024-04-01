@@ -13,6 +13,8 @@ const char* get_token_type_name(TokenType type)
         return #x;
         CASE(LEFT_PAREN)
         CASE(RIGHT_PAREN)
+        CASE(LEFT_SQUARE_PAREN)
+        CASE(RIGHT_SQUARE_PAREN)
         CASE(LEFT_BRACE)
         CASE(RIGHT_BRACE)
         CASE(COMMA)
@@ -162,6 +164,10 @@ Token Scanner::scan_token()
         return _make_token(TokenType::SLASH);
     case '*':
         return _make_token(TokenType::STAR);
+    case '[':
+        return _make_token(TokenType::LEFT_SQUARE_PAREN);
+    case ']':
+        return _make_token(TokenType::RIGHT_SQUARE_PAREN);
     case '!':
         return _make_token(_match('=') ? TokenType::BANG_EQUAL : TokenType::BANG);
     case '=':

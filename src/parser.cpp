@@ -1,6 +1,7 @@
 #include "parser.h"
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <print>
@@ -28,6 +29,10 @@ Parser::ParseRule Parser::_parse_rules[] = {
                                             &Parser::_parse_call,
                                             Precedence::CALL},
     [type_to_int(TokenType::RIGHT_PAREN)] = {nullptr, nullptr, Precedence::NONE},
+    [type_to_int(TokenType::LEFT_SQUARE_PAREN)] = {&Parser::_parse_list,
+                                                   &Parser::_parse_list_index,
+                                                   Precedence::CALL},
+    [type_to_int(TokenType::RIGHT_SQUARE_PAREN)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::LEFT_BRACE)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::RIGHT_BRACE)] = {nullptr, nullptr, Precedence::NONE},
     [type_to_int(TokenType::COMMA)] = {nullptr, nullptr, Precedence::NONE},
@@ -156,6 +161,42 @@ ASTNodePtr Parser::_parse_declaration()
     }
 
     return ret;
+}
+
+ASTNodePtr Parser::_parse_list()
+{
+    auto left_paren = _previous;
+
+    std::vector<ASTNodePtr> elements;
+
+    if(_current.type != TokenType::RIGHT_SQUARE_PAREN)
+    {
+        do
+        {
+            elements.push_back(_parse_expression());
+
+            if(elements.size() >= std::numeric_limits<uint8_t>::max())
+            {
+                _error("List can have a maximum of 255 elements.");
+                return nullptr;
+            }
+
+        } while(_match(TokenType::COMMA));
+    }
+
+    _consume(TokenType::RIGHT_SQUARE_PAREN, "Expected ']' after list.");
+
+    return std::make_unique<ASTNode>(ASTNode{ListDeclNode{std::move(elements), _previous}});
+}
+
+ASTNodePtr Parser::_parse_list_index(ASTNodePtr list)
+{
+    auto left_bracket = _previous;
+    auto index = _parse_expression();
+    _consume(TokenType::RIGHT_SQUARE_PAREN, "Expected ']' after list index.");
+
+    return std::make_unique<ASTNode>(
+        ASTNode{ListIndexExprNode{std::move(list), left_bracket, std::move(index)}});
 }
 
 ASTNodePtr Parser::_parse_class_declaration()

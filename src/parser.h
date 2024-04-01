@@ -32,6 +32,8 @@ struct CallNode;
 struct ReturnStmtNode;
 struct PropertyExprNode;
 struct SuperExprNode;
+struct ListDeclNode;
+struct ListIndexExprNode;
 
 using ASTNode = std::variant<BinExprNode,
                              ValueNode,
@@ -49,7 +51,9 @@ using ASTNode = std::variant<BinExprNode,
                              ClassDeclNode,
                              CallNode,
                              ReturnStmtNode,
-                             SuperExprNode>;
+                             SuperExprNode,
+                             ListDeclNode,
+                             ListIndexExprNode>;
 
 using ASTNodePtr = std::unique_ptr<ASTNode>;
 
@@ -165,6 +169,19 @@ struct AssignmentExprNode
     ASTNodePtr value;
 };
 
+struct ListDeclNode
+{
+    std::vector<ASTNodePtr> elements;
+    Token end_bracket;
+};
+
+struct ListIndexExprNode
+{
+    ASTNodePtr list;
+    Token left_bracket;
+    ASTNodePtr index;
+};
+
 class Parser
 {
     Scanner& _scanner;
@@ -194,7 +211,7 @@ class Parser
         TERM, // + -
         FACTOR, // * /
         UNARY, // ! -
-        CALL, // . ()
+        CALL, // . () []
         PRIMARY
     };
 
@@ -226,6 +243,8 @@ class Parser
     ASTNodePtr _parse_function_declaration(bool method);
     ASTNodePtr _parse_variable();
     ASTNodePtr _parse_super();
+    ASTNodePtr _parse_list();
+    ASTNodePtr _parse_list_index(ASTNodePtr);
     ASTNodePtr _parse_class_declaration();
     ASTNodePtr _parse_call(ASTNodePtr);
     ASTNodePtr _parse_dot(ASTNodePtr);

@@ -617,6 +617,37 @@ InterpretResult VM::_run()
 
             break;
         }
+        case OpCode::LIST: {
+            auto size = _read_byte();
+
+            auto list = Value{_allocator.allocate<ListObject>(
+                true, std::span<Value>(_stack.top_addr() + 1 - size, size))};
+
+            _stack.pop_by(size);
+            _stack.push(list);
+
+            break;
+        }
+        case OpCode::LIST_INDEX: {
+            auto& index = _stack.pop();
+            auto* list = _stack.pop().as_object()->as<ListObject>();
+
+            if(!list)
+            {
+                _runtime_error("Only lists can be indexed.");
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            if(!index.is_number())
+            {
+                _runtime_error("Index must be a number");
+                return InterpretResult::RUNTIME_ERROR;
+            }
+
+            _stack.push(list->elements[index.as_number()]);
+
+            break;
+        }
         }
 #undef BINARY_OP
     }

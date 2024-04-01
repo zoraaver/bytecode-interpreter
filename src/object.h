@@ -266,7 +266,6 @@ struct InstanceObject : public Object
 
 struct NativeFunctionObject : public Object
 {
-
     NativeFunctionObject(NativeFn native_fn)
         : native_fn(native_fn)
     { }
@@ -281,6 +280,45 @@ struct NativeFunctionObject : public Object
     }
 
     virtual ~NativeFunctionObject(){};
+};
+
+struct ListObject : public Object
+{
+    ListObject(std::span<Value> elements)
+        : elements(elements.begin(), elements.end())
+    { }
+
+    ADD_SIZE_METHOD(ListObject)
+
+    void blacken(GreyList<Object*>& grey_list) override
+    {
+        Object::blacken(grey_list);
+
+        for(auto& element : elements)
+        {
+            element.mark(grey_list);
+        }
+    }
+
+    std::string to_string() const override
+    {
+        std::string ret = "[";
+
+        for(auto i = 0; i < elements.size(); ++i)
+        {
+            ret += elements[i].to_string();
+
+            if(i < elements.size() - 1)
+            {
+                ret += ", ";
+            }
+        }
+
+        ret += "]";
+        return ret;
+    }
+
+    std::vector<Value> elements;
 };
 
 class ObjectAllocator

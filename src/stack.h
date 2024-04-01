@@ -2,6 +2,8 @@
 #define LOX_STACK_H
 
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <memory>
 
 #include "common.h"
@@ -85,7 +87,7 @@ public:
 };
 
 inline constexpr int MAX_FRAMES = 64;
-inline constexpr int STACK_MAX = MAX_FRAMES * (UINT8_MAX + 1);
+inline constexpr int STACK_MAX = MAX_FRAMES * (std::numeric_limits<uint8_t>::max() + 1);
 
 template <typename T>
 using FixedStack = Stack<T, STACK_MAX>;

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <string_view>
 
 #include "chunk.h"
@@ -75,8 +76,8 @@ private:
     // We reserve the first local slot for internal VM use.
     int _local_count = 1;
 
-    static constexpr int MAX_LOCALS = UINT8_MAX + 1;
-    static constexpr int MAX_UPVALUES = UINT8_MAX + 1;
+    static constexpr int MAX_LOCALS = std::numeric_limits<uint8_t>::max() + 1;
+    static constexpr int MAX_UPVALUES = std::numeric_limits<uint8_t>::max() + 1;
 
     Local _locals[MAX_LOCALS] = {{.name = Token{}, .depth = 0}};
     UpValue _upvalues[MAX_UPVALUES];
@@ -172,6 +173,8 @@ public:
     void operator()(const ClassDeclNode&);
     void operator()(const SuperExprNode&);
     void operator()(const CallNode&);
+    void operator()(const ListDeclNode&);
+    void operator()(const ListIndexExprNode&);
 };
 } // namespace lox
 
